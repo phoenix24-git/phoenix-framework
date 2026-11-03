@@ -8,6 +8,7 @@
 #include "core/core_globals.h"
 #include "core/debugger/engine_debugger.h"
 #include "core/io/file_access_pack.h"
+#include "core/io/file_access_zip.h"
 #include "core/io/resource_loader.h"
 #include "core/io/resource_saver.h"
 #include "core/object/class_db.h"
@@ -35,6 +36,7 @@ struct State {
 	ProjectSettings *globals = nullptr;
 	TranslationServer *translation_server = nullptr;
 	MessageQueue *message_queue = nullptr;
+	bool main_pack = false;
 };
 
 State *g_state = nullptr;
@@ -60,6 +62,7 @@ bool CoreRuntime::initialize(const CoreOptions &p_options) {
 		resource_dir = resource_dir.substr(0, resource_dir.length() - 1);
 	}
 	s.os->set_resource_dir(resource_dir);
+	s.os->set_data_root(p_options.user_data_root);
 	String exec_path = p_options.executable_path;
 	if (exec_path.is_empty()) {
 		const char *base = SDL_GetBasePath();
@@ -78,11 +81,23 @@ bool CoreRuntime::initialize(const CoreOptions &p_options) {
 	GDREGISTER_CLASS(Node);
 	GDREGISTER_CLASS(SceneState);
 	GDREGISTER_CLASS(PackedScene);
+	// Virtual file system: PCK packs (built in) and ZIP packs, layered over res://.
 	s.packed_data = memnew(PackedData);
+	s.packed_data->add_pack_source(ZipArchive::get_singleton());  // owned by PackedData
 	s.globals = memnew(ProjectSettings);
 	register_core_settings();
-	// Loads res://project.godot when present (Godot projects open as-is); ignores absence.
-	s.globals->setup(resource_dir, String(), false, true);
+	// Loads res://project.godot (or the main pack's) when present; Godot projects open as-is.
+	const Error setup_err = s.globals->setup(resource_dir, p_options.main_pack, false, true);
+	if (!p_options.main_pack.is_empty() && setup_err == ERR_CANT_OPEN) {
+		ERR_PRINT("Could not load the main pack: " + p_options.main_pack);
+	}
+	// Packs mounted later (DLC, mods) layer over the project folder; a pack loaded here is the
+	// whole of res://.
+	s.main_pack = s.globals->is_using_datapack();
+	// user:// is named after the project: use the app name unless the project sets one.
+	if (String(GLOBAL_GET("application/config/name")).is_empty()) {
+		s.globals->set_setting("application/config/name", p_options.app_name);
+	}
 	s.translation_server = memnew(TranslationServer);
 	register_early_core_singletons();
 	register_core_extensions();
@@ -135,6 +150,10 @@ void CoreRuntime::finalize() {
 
 bool CoreRuntime::is_initialized() {
 	return g_state != nullptr;
+}
+
+bool CoreRuntime::is_running_from_main_pack() {
+	return g_state && g_state->main_pack;
 }
 
 } // namespace phoenix::foundation

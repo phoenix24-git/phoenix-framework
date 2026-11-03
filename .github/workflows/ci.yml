@@ -158,6 +158,27 @@ jobs:
           cmake --preset native-release
           cmake --build --preset native-release
           ../build/engine/native-release/test/phoenix_engine_tests --test-suite="ScriptHost*"
+      - name: "Example: Skyline plays itself (scene file + C# scripts, headless)"
+        env:
+          SKYLINE_AUTOPLAY: "1"
+        run: |
+          dotnet publish examples/skyline/scripts -c Release -r linux-x64 -o build/skyline_scripts
+          nm -D --defined-only build/skyline_scripts/Skyline.so | grep -q phoenix_script_attach
+          cmake -S engine -B build/skyline -G Ninja -DCMAKE_BUILD_TYPE=Release -DPHOENIX_BUILD_TESTS=OFF \
+            -DPHOENIX_APP_DIR="$PWD/examples/skyline" -DPHOENIX_APP_NAME=skyline -DPHOENIX_APP_TITLE=Skyline \
+            -DPHOENIX_BUILD_MODE=release -DPHOENIX_REPO_ROOT="$PWD"
+          cmake --build build/skyline
+          # --fixed-dt: 60 simulated frames per second, whatever the runner's speed.
+          build/skyline/out/skyline --headless --fixed-dt=0.0166667 --frames=3600 \
+            --script="$PWD/build/skyline_scripts/Skyline.so" --screenshot="$PWD/build/skyline.bmp" 2>&1 | tee build/skyline.log
+          grep -q "3 of 3 scripts attached" build/skyline.log
+          grep -q "Skyline: score 10" build/skyline.log
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: skyline-screenshot
+          path: build/skyline.bmp
+          if-no-files-found: ignore
 
   web:
     name: Web (phoenix CLI + browser e2e)

@@ -45,6 +45,20 @@ PhxDrawRect* fake_rects(void* e, std::uint32_t count) {
     return fe->rects.data();
 }
 
+// The 2D services are faked; the scene functions stay null (no scene in these tests).
+PhxEngineApi make_api(FakeEngine* fake, std::uint32_t version) {
+    PhxEngineApi api{};
+    api.abi_version = version;
+    api.struct_size = sizeof(PhxEngineApi);
+    api.engine = fake;
+    api.log = fake_log;
+    api.spawn_box = fake_spawn;
+    api.apply_impulse = fake_impulse;
+    api.bodies = fake_bodies;
+    api.draw_rects = fake_rects;
+    return api;
+}
+
 }  // namespace
 
 TEST_SUITE("ScriptHost (C# NativeAOT)") {
@@ -58,9 +72,7 @@ TEST_SUITE("ScriptHost (C# NativeAOT)") {
     TEST_CASE("C# script spawns bodies and writes draw rects through the ABI" *
               doctest::skip(SDL_getenv("PHOENIX_TEST_SCRIPT_MODULE") == nullptr)) {
         FakeEngine fake;
-        PhxEngineApi api{
-            PHX_SCRIPT_ABI_VERSION, sizeof(PhxEngineApi), &fake,     fake_log, fake_spawn,
-            fake_impulse,           fake_bodies,          fake_rects};
+        PhxEngineApi api = make_api(&fake, PHX_SCRIPT_ABI_VERSION);
         phoenix::ScriptHost host;
         REQUIRE(host.load(SDL_getenv("PHOENIX_TEST_SCRIPT_MODULE"), &api));
         REQUIRE_FALSE(fake.logs.empty());
@@ -86,14 +98,7 @@ TEST_SUITE("ScriptHost (C# NativeAOT)") {
     TEST_CASE("ABI version mismatch is rejected by the C# side" *
               doctest::skip(SDL_getenv("PHOENIX_TEST_SCRIPT_MODULE") == nullptr)) {
         FakeEngine fake;
-        PhxEngineApi api{PHX_SCRIPT_ABI_VERSION + 1,
-                         sizeof(PhxEngineApi),
-                         &fake,
-                         fake_log,
-                         fake_spawn,
-                         fake_impulse,
-                         fake_bodies,
-                         fake_rects};
+        PhxEngineApi api = make_api(&fake, PHX_SCRIPT_ABI_VERSION + 1);
         phoenix::ScriptHost host;
         CHECK_FALSE(host.load(SDL_getenv("PHOENIX_TEST_SCRIPT_MODULE"), &api));
     }

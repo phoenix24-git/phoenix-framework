@@ -1,0 +1,61 @@
+; Skyline's main scene. Godot .tscn syntax; Unity-style GameObjects and components.
+; Open it next to scripts/StackGame.cs: the [script] sections below attach those C# classes.
+
+[phoenix_scene format=1]
+
+[node name="World"]
+
+; An isometric camera: pitch -35.264 and yaw 45 degrees look down the (-1, -1, -1) diagonal.
+[node name="Main Camera" parent="."]
+tag = "MainCamera"
+
+[component type="Transform"]
+position = Vector3(6, 6.5, 6)
+euler = Vector3(-35.264, 45, 0)
+
+[component type="Camera"]
+clearFlags = "SolidColor"
+backgroundColor = Color(0.09, 0.1, 0.18, 1)
+projection = "Orthographic"
+orthographicSize = 5.5
+
+[script class="Skyline.CameraRig"]
+followSpeed = 3.0
+heightAboveTop = 0.5
+
+[node name="Sun" parent="."]
+
+[component type="Transform"]
+euler = Vector3(-58, 28, 0)
+
+[component type="Light"]
+type = "Directional"
+color = Color(1, 0.96, 0.9, 1)
+intensity = 1.0
+
+; The pillar the tower grows on: a cube scaled to 3 x 8 x 3, its top face at y = 0.
+[node name="Base" parent="."]
+
+[component type="Transform"]
+position = Vector3(0, -4, 0)
+scale = Vector3(3, 8, 3)
+
+[component type="MeshFilter"]
+primitive = "Cube"
+
+[component type="MeshRenderer"]
+color = Color(0.36, 0.42, 0.62, 1)
+
+; The game itself: a C# MetaBehaviour with its tuning values (like Unity's serialized fields).
+[node name="Game" parent="."]
+
+[script class="Skyline.StackGame"]
+speed = 2.4
+slabHeight = 0.42
+startSize = 3.0
+perfectTolerance = 0.09
+hueStart = 0.6
+hueStep = 0.032
+
+; A second script on the same object: the score display.
+[script class="Skyline.ScoreHud"]

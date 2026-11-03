@@ -8,6 +8,33 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Scenes and scripts** (see `docs/scenes.md`):
+  - `.pscn` scene files use Godot's `.tscn` syntax, with `[node]`, `[component]` and `[script]`
+    sections; start one with `phoenix::runScene("res://…")`.
+  - C# `MetaBehaviour`s attach to GameObjects, with the Unity lifecycle, `properties` from the
+    scene file, `GameObject`/`Transform`, component views (`MeshRenderer`, `Camera`, `Light`) and
+    `Input`. Their data is read and written as zero-copy references into ECS memory.
+- **3D scene rendering:** orthographic camera, lit `MeshFilter` cubes, whole-box back-to-front
+  ordering.
+- **Script ABI v2:**
+  - a parallelogram draw mode (`PHX_DRAW_PARALLELOGRAM`)
+  - scene functions: find, create, destroy, `get_component`, `get_field`
+  - a `phoenix_script_attach` export
+- **Engine flags:**
+  - `--screenshot=` saves the last frame.
+  - `--res=` sets the folder behind `res://`.
+  - `--fixed-dt=` advances every frame by a fixed amount of time, for deterministic headless runs.
+- **Skyline example** (`examples/skyline`): an original 3D block-stacking game, built from a scene
+  file and C# scripts. CI plays it headless.
+
+- **Virtual file system** (`phoenix/vfs/vfs.h`), using Godot-style paths:
+  - `res://` for project resources and `user://` for per-player data, plus `uid://`
+  - path normalization that blocks paths escaping their root
+  - atomic writes
+  - `.pck` and `.zip` packs: a sealed main pack for exported games, and layered DLC and mod packs
+  - on the web, `user://` is stored in OPFS
+- `phoenix_pack` tool: packs a project folder into a `.pck`.
+
 - **ECS** (`phoenix::ecs`, on foundation types):
   - archetype storage in 16 KiB SoA chunks
   - entity generations
@@ -55,6 +82,10 @@ All notable changes to this project are documented here. The format follows
 ### Removed
 
 - `pages.yml`, the Actions-based Pages deploy. The repository serves Pages from `main /docs`.
+
+### Fixed
+
+- Directory listings in the SDL file layer no longer return nested files.
 
 ## [0.1.0] - 2026-11-03
 

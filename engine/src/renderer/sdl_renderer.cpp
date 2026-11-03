@@ -3,6 +3,7 @@
 #include <SDL3/SDL_video.h>
 
 #include <cmath>
+#include <string>
 #include <vector>
 
 #include "core/log.h"
@@ -35,6 +36,11 @@ class SdlRenderer final : public Renderer {
     const char* name() const override { return name_; }
     RendererStats stats() const override { return {0, 0, 0, last_count_}; }
 
+    bool capture_next_frame(const char* bmp_path) override {
+        capture_path_ = bmp_path ? bmp_path : "";
+        return true;
+    }
+
     void render(std::span<const PhxDrawRect> rects, float logical_w, float logical_h,
                 std::uint32_t clear) override {
         int pw = 0, ph = 0;
@@ -51,15 +57,25 @@ class SdlRenderer final : public Renderer {
             const SDL_FColor color{((r.rgba >> 24) & 0xFF) / 255.0f,
                                    ((r.rgba >> 16) & 0xFF) / 255.0f,
                                    ((r.rgba >> 8) & 0xFF) / 255.0f, (r.rgba & 0xFF) / 255.0f};
-            const float cx = r.x + r.w * 0.5f, cy = r.y + r.h * 0.5f;
-            const float c = std::cos(r.rotation), s = std::sin(r.rotation);
-            const float hx[4] = {-0.5f, 0.5f, 0.5f, -0.5f};
-            const float hy[4] = {-0.5f, -0.5f, 0.5f, 0.5f};
             const int base = static_cast<int>(vertices_.size());
-            for (int i = 0; i < 4; ++i) {
-                const float lx = hx[i] * r.w, ly = hy[i] * r.h;
-                vertices_.push_back(
-                    {{(cx + lx * c - ly * s) * sx, (cy + lx * s + ly * c) * sy}, color, {0, 0}});
+            if (r.flags & PHX_DRAW_PARALLELOGRAM) {
+                // Corners o, o+a, o+a+b, o+b with a = (w, h), b = (rotation, corner_radius).
+                const float ox[4] = {r.x, r.x + r.w, r.x + r.w + r.rotation, r.x + r.rotation};
+                const float oy[4] = {r.y, r.y + r.h, r.y + r.h + r.corner_radius,
+                                     r.y + r.corner_radius};
+                for (int i = 0; i < 4; ++i)
+                    vertices_.push_back({{ox[i] * sx, oy[i] * sy}, color, {0, 0}});
+            } else {
+                const float cx = r.x + r.w * 0.5f, cy = r.y + r.h * 0.5f;
+                const float c = std::cos(r.rotation), s = std::sin(r.rotation);
+                const float hx[4] = {-0.5f, 0.5f, 0.5f, -0.5f};
+                const float hy[4] = {-0.5f, -0.5f, 0.5f, 0.5f};
+                for (int i = 0; i < 4; ++i) {
+                    const float lx = hx[i] * r.w, ly = hy[i] * r.h;
+                    vertices_.push_back({{(cx + lx * c - ly * s) * sx, (cy + lx * s + ly * c) * sy},
+                                         color,
+                                         {0, 0}});
+                }
             }
             for (int i : {0, 1, 2, 0, 2, 3})
                 indices_.push_back(base + i);
@@ -70,6 +86,17 @@ class SdlRenderer final : public Renderer {
                                static_cast<int>(indices_.size()));
         }
         last_count_ = static_cast<std::uint32_t>(rects.size());
+        if (!capture_path_.empty()) {
+            if (SDL_Surface* shot = SDL_RenderReadPixels(renderer_, nullptr)) {
+                if (SDL_SaveBMP(shot, capture_path_.c_str()))
+                    PHX_LOG_INFO("Renderer: saved %s", capture_path_.c_str());
+                else
+                    PHX_LOG_ERROR("Renderer: cannot save %s: %s", capture_path_.c_str(),
+                                  SDL_GetError());
+                SDL_DestroySurface(shot);
+            }
+            capture_path_.clear();
+        }
         SDL_RenderPresent(renderer_);
     }
 
@@ -79,6 +106,7 @@ class SdlRenderer final : public Renderer {
     std::vector<SDL_Vertex> vertices_;
     std::vector<int> indices_;
     std::uint32_t last_count_ = 0;
+    std::string capture_path_;
     char name_[64] = "sdl_renderer";
 };
 

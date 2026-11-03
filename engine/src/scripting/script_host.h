@@ -1,6 +1,7 @@
 // Copyright 2026 The Phoenix Authors. SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 #include "phoenix/script_abi.h"
@@ -20,6 +21,9 @@ class ScriptHost {
     bool load(const std::string& path, const PhxEngineApi* api);
     void unload();
     void update(const PhxFrameInfo& frame);
+    /// Attaches a script class to a scene object (phoenix_script_attach). False when the module
+    /// doesn't export it or rejects the class.
+    bool attach(std::uint64_t object, const char* class_name, const char* properties);
     bool loaded() const { return module_ != nullptr; }
     const std::string& path() const { return path_; }
 
@@ -27,6 +31,7 @@ class ScriptHost {
     SDL_SharedObject* module_ = nullptr;
     PhxScriptUpdateFn update_ = nullptr;
     PhxScriptShutdownFn shutdown_ = nullptr;
+    PhxScriptAttachFn attach_ = nullptr;
     std::string path_;
 };
 

@@ -1,0 +1,6 @@
+build/
+.phoenix_tool/
+scripts/bin/
+scripts/obj/
+tests/bin/
+tests/obj/

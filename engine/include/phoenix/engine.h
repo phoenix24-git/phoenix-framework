@@ -38,4 +38,9 @@ inline std::span<const PhxBody2D> bodies() {
 
 void log(std::string_view message);
 
+/// Runs a scene file (Godot .tscn syntax with Unity-style components, see
+/// phoenix/scene/scene_file.h): call it from phoenix_main() instead of (or alongside) runApp().
+/// The path is virtual: "res://scenes/main.pscn" maps to the app's res/ folder.
+bool runScene(std::string_view path);
+
 }  // namespace phoenix

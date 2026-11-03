@@ -1,0 +1,19 @@
+{
+  "name": "skyline",
+  "description": "Skyline: an original 3D block-stacking game. A Godot-style scene file with Unity-style components, driven by C# scripts.",
+  "version": "1.0.0+1",
+  "environment": {
+    "phoenix": ">=0.1.0 <1.0.0"
+  },
+  "title": "Skyline",
+  "console": {
+    "vramMB": 512,
+    "vramPreallocate": true,
+    "workerThreads": 4,
+    "cpuArenaMB": 64
+  },
+  "web": {
+    "initialMemoryMB": 512,
+    "maximumMemoryMB": 4096
+  }
+}

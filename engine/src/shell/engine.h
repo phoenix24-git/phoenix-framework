@@ -18,6 +18,10 @@
 struct SDL_Window;
 union SDL_Event;
 
+namespace phoenix::scene {
+class Scene;
+}
+
 namespace phoenix {
 
 struct EngineConfig {
@@ -27,10 +31,17 @@ struct EngineConfig {
     ConsoleProfile profile{};
     /// Optional native script module (NativeAOT C# or C++ shared library).
     std::string script_module;
+    /// Folder behind res:// (default: "res" next to the executable; "/res" on the web).
+    std::string res_dir;
     /// Create no window/renderer (CI smoke runs, servers).
     bool headless = false;
     /// Quit after this many frames (0 = run forever).
     std::uint64_t max_frames = 0;
+    /// Save the last frame (with max_frames) as a BMP file.
+    std::string screenshot;
+    /// When > 0, every frame advances time by exactly this many seconds (deterministic
+    /// headless runs and tests) instead of the wall clock.
+    float fixed_dt = 0.0f;
     int width = 1024;
     int height = 640;
 };
@@ -77,8 +88,18 @@ class Engine {
     /// Reserves `count` draw rects in this frame's arena (script ABI).
     PhxDrawRect* reserve_rects(std::uint32_t count);
 
+    /// Loads a scene file (res://...) and makes it the running scene: its GameObjects update
+    /// and render every frame, and its [script] sections attach to the script module.
+    bool run_scene(const std::string& path);
+    /// The running scene, or nullptr.
+    scene::Scene* scene() { return scene_.get(); }
+    /// Script ABI: destroys at the end of the frame, like Unity.
+    void destroy_later(std::uint64_t object) { pending_destroy_.push_back(object); }
+
   private:
     void publish_stats(double now);
+    bool start_core();
+    void flush_destroyed();
 
     EngineConfig config_;
     SDL_Window* window_ = nullptr;
@@ -87,6 +108,9 @@ class Engine {
     PhysicsWorld physics_;
     StorageService storage_;
     ScriptHost scripts_;
+    std::unique_ptr<scene::Scene> scene_;
+    std::vector<std::uint64_t> pending_destroy_;
+    bool core_started_ = false;
     LinearArena frame_arena_;
     std::vector<PhxDrawRect> display_list_;
     struct ScriptRects {

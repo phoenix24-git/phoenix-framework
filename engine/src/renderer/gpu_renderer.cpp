@@ -156,11 +156,13 @@ class GpuRenderer final : public Renderer {
         vb.slot = 0;
         vb.pitch = sizeof(PhxDrawRect);
         vb.input_rate = SDL_GPU_VERTEXINPUTRATE_INSTANCE;
-        SDL_GPUVertexAttribute attrs[4] = {
+        SDL_GPUVertexAttribute attrs[6] = {
             {0, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, offsetof(PhxDrawRect, x)},
             {1, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, offsetof(PhxDrawRect, w)},
             {2, 0, SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, offsetof(PhxDrawRect, rgba)},
             {3, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT, offsetof(PhxDrawRect, rotation)},
+            {4, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT, offsetof(PhxDrawRect, corner_radius)},
+            {5, 0, SDL_GPU_VERTEXELEMENTFORMAT_UINT, offsetof(PhxDrawRect, flags)},
         };
 
         SDL_GPUGraphicsPipelineCreateInfo info{};
@@ -170,7 +172,7 @@ class GpuRenderer final : public Renderer {
         info.vertex_input_state.vertex_buffer_descriptions = &vb;
         info.vertex_input_state.num_vertex_buffers = 1;
         info.vertex_input_state.vertex_attributes = attrs;
-        info.vertex_input_state.num_vertex_attributes = 4;
+        info.vertex_input_state.num_vertex_attributes = 6;
         info.target_info.color_target_descriptions = &color;
         info.target_info.num_color_targets = 1;
         pipeline_ = SDL_CreateGPUGraphicsPipeline(device_, &info);
