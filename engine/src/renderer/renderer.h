@@ -28,6 +28,9 @@ class Renderer {
     virtual void render(std::span<const PhxDrawRect> rects, float logical_w, float logical_h,
                         std::uint32_t clear_rgba) = 0;
     virtual RendererStats stats() const = 0;
+    /// Saves the next rendered frame as a BMP file (debugging, CI artifacts). Returns false if
+    /// this backend can't read frames back.
+    virtual bool capture_next_frame(const char* /*bmp_path*/) { return false; }
 };
 
 /// SDL_GPU backend (WebGPU on the web via SDL_wgpu). Returns nullptr if no

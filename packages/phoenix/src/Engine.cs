@@ -20,7 +20,7 @@ public static unsafe class Engine
 
     internal static void Detach() => s_api = null;
 
-    private static PhxEngineApi* Api => s_api is not null ? s_api : throw new InvalidOperationException("Phoenix engine is not attached.");
+    internal static PhxEngineApi* Api => s_api is not null ? s_api : throw new InvalidOperationException("Phoenix engine is not attached.");
 
     /// <summary>Spawns a box (meters, y up). The id is valid immediately.</summary>
     public static uint SpawnBox(float x, float y, float halfWidth, float halfHeight, float angle = 0, bool dynamic = true,

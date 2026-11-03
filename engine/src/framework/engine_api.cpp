@@ -22,6 +22,25 @@ void no_log(void*, std::int32_t, const char*) {}
 PhxDrawRect* no_rects(void*, std::uint32_t) {
     return nullptr;
 }
+std::uint64_t no_find(void*, const char*) {
+    return 0;
+}
+std::uint64_t no_create(void*, const char*, std::uint64_t) {
+    return 0;
+}
+void no_destroy(void*, std::uint64_t) {}
+std::uint32_t no_alive(void*, std::uint64_t) {
+    return 0;
+}
+void no_set_active(void*, std::uint64_t, std::uint32_t) {}
+void* no_component(void*, std::uint64_t, const char*, std::uint32_t) {
+    return nullptr;
+}
+void* no_field(void*, std::uint64_t, const char*, const char*, std::uint32_t* out_size) {
+    if (out_size)
+        *out_size = 0;
+    return nullptr;
+}
 
 // Safe defaults so widgets work before boot and in unit tests.
 const PhxEngineApi kNullApi{PHX_SCRIPT_ABI_VERSION,
@@ -31,7 +50,14 @@ const PhxEngineApi kNullApi{PHX_SCRIPT_ABI_VERSION,
                             no_spawn,
                             no_impulse,
                             no_bodies,
-                            no_rects};
+                            no_rects,
+                            no_find,
+                            no_create,
+                            no_destroy,
+                            no_alive,
+                            no_set_active,
+                            no_component,
+                            no_field};
 const PhxEngineApi* g_api = &kNullApi;
 PhxFrameInfo g_frame{};
 

@@ -10,5 +10,7 @@
   </Folder>
   <Folder Name="/examples/">
     <Project Path="examples/csharp_script/CSharpScript.csproj" />
+    <Project Path="examples/skyline/scripts/Skyline.csproj" />
+    <Project Path="examples/skyline/tests/Skyline.Tests.csproj" />
   </Folder>
 </Solution>

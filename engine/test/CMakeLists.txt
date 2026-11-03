@@ -27,7 +27,8 @@ set_tests_properties(phoenix_engine_tests PROPERTIES TIMEOUT 300)
 
 # ECS + Unity-style scene layer (needs the foundation runtime).
 if(PHOENIX_WITH_FOUNDATION)
-    add_executable(phoenix_scene_tests scene/main.cpp scene/ecs_test.cpp scene/components_test.cpp scene/scene_test.cpp)
+    add_executable(phoenix_scene_tests scene/main.cpp scene/ecs_test.cpp scene/components_test.cpp scene/scene_test.cpp
+                                       scene/scene_file_test.cpp)
     target_link_libraries(phoenix_scene_tests PRIVATE phoenix::scene phoenix::doctest)
     target_include_directories(phoenix_scene_tests PRIVATE "${CMAKE_SOURCE_DIR}/thirdparty/phoenix_core_glue")
     phoenix_target_defaults(phoenix_scene_tests)

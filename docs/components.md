@@ -11,7 +11,7 @@ data-oriented ECS (archetype chunks), reflected for serialization, prefabs and t
 and reachable through the Unity-style API (`GameObject`, `AddComponent<T>()`, `GetComponent<T>()`).
 Scripts derive from **`MetaBehaviour`** (Phoenix's `MonoBehaviour`).
 
-**141 components**: 9 simulated today, 132 data-only. Data-only components are fully usable as data (add, edit, save, query from systems);
+**141 components**: 13 simulated today, 128 data-only. Data-only components are fully usable as data (add, edit, save, query from systems);
 their built-in behaviour lands with the server that owns it (physics, rendering, audio, …).
 
 {: .note }
@@ -42,10 +42,10 @@ _Generated from `engine/components/catalogue.py` — edit that file, not this pa
 
 | Unity | Phoenix | Status | Fields |
 |---|---|---|---|
-| MeshFilter | `MeshFilter` | data | `mesh` |
-| MeshRenderer | `MeshRenderer` | data | `materials`, `shadowCastingMode`, `receiveShadows`, `renderingLayerMask`, `sortingOrder` |
+| MeshFilter | `MeshFilter` | ✅ simulated | `mesh`, `primitive` |
+| MeshRenderer | `MeshRenderer` | ✅ simulated | `color`, `materials`, `shadowCastingMode`, `receiveShadows`, `renderingLayerMask`, `sortingOrder` |
 | SkinnedMeshRenderer | `SkinnedMeshRenderer` | data | `sharedMesh`, `materials`, `rootBone`, `bones`, `blendShapeWeights`, `updateWhenOffscreen` |
-| Camera | `Camera` | data | `clearFlags`, `backgroundColor`, `cullingMask`, `projection`, `fieldOfView`, `orthographicSize`, `nearClipPlane`, `farClipPlane`, `rect`, `depth`, `targetTexture`, `allowHDR`, `allowMSAA` |
+| Camera | `Camera` | ✅ simulated | `clearFlags`, `backgroundColor`, `cullingMask`, `projection`, `fieldOfView`, `orthographicSize`, `nearClipPlane`, `farClipPlane`, `rect`, `depth`, `targetTexture`, `allowHDR`, `allowMSAA` |
 | Projector | `Projector` | data | `material`, `nearClipPlane`, `farClipPlane`, `fieldOfView`, `aspectRatio`, `orthographic`, `ignoreLayers` |
 | Decal Projector | `DecalProjector` | data | `material`, `size`, `pivot`, `fadeFactor`, `drawDistance`, `renderingLayerMask` |
 | LOD Group | `LODGroup` | data | `screenRelativeHeights`, `lodRenderers`, `fadeMode`, `animateCrossFading`, `size` |
@@ -64,7 +64,7 @@ _Generated from `engine/components/catalogue.py` — edit that file, not this pa
 
 | Unity | Phoenix | Status | Fields |
 |---|---|---|---|
-| Light | `Light` | data | `type`, `color`, `intensity`, `range`, `spotAngle`, `innerSpotAngle`, `areaSize`, `shadows`, `shadowStrength`, `bounceIntensity`, `lightmapBakeType`, `cookie`, `cullingMask`, `colorTemperature`, `useColorTemperature` |
+| Light | `Light` | ✅ simulated | `type`, `color`, `intensity`, `range`, `spotAngle`, `innerSpotAngle`, `areaSize`, `shadows`, `shadowStrength`, `bounceIntensity`, `lightmapBakeType`, `cookie`, `cullingMask`, `colorTemperature`, `useColorTemperature` |
 | Light Probe Group | `LightProbeGroup` | data | `probePositions` |
 | Light Probe Proxy Volume | `LightProbeProxyVolume` | data | `boundsSize`, `originCustom`, `gridResolutionX`, `gridResolutionY`, `gridResolutionZ` |
 | Reflection Probe | `ReflectionProbe` | data | `mode`, `importance`, `intensity`, `boxProjection`, `blendDistance`, `size`, `center`, `resolution`, `hdr`, `customBakedTexture` |

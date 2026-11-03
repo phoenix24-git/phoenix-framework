@@ -35,11 +35,6 @@ phoenix_engine_library(renderer
     SOURCES renderer/gpu_renderer.cpp renderer/sdl_renderer.cpp renderer/vram_pool.cpp
     DEPS phoenix::core)
 
-phoenix_engine_library(engine
-    SOURCES shell/engine.cpp shell/devtools_bridge.cpp scripting/script_host.cpp
-            storage/storage_service.cpp
-    DEPS phoenix::core phoenix::physics phoenix::framework phoenix::renderer)
-
 # Entry point compiled into every app executable (see cmake/PhoenixApp.cmake).
 set(PHOENIX_APP_MAIN_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/shell/app_main.cpp" CACHE INTERNAL "")
 
@@ -79,7 +74,18 @@ if(PHOENIX_WITH_FOUNDATION)
     endif()
 
     phoenix_engine_library(scene
-        SOURCES scene/scene.cpp "${PHOENIX_COMPONENTS_GEN}/phoenix/scene/components.gen.cpp"
+        SOURCES scene/scene.cpp scene/scene_file.cpp scene/scene_renderer.cpp
+                "${PHOENIX_COMPONENTS_GEN}/phoenix/scene/components.gen.cpp"
         DEPS phoenix::ecs)
     target_include_directories(phoenix_scene PUBLIC "${PHOENIX_COMPONENTS_GEN}")
+endif()
+
+# --- The embedder (window, frame loop, scripts, scene) -----------------------------------------
+phoenix_engine_library(engine
+    SOURCES shell/engine.cpp shell/devtools_bridge.cpp scripting/script_host.cpp
+            storage/storage_service.cpp
+    DEPS phoenix::core phoenix::physics phoenix::framework phoenix::renderer)
+if(PHOENIX_WITH_FOUNDATION)
+    target_link_libraries(phoenix_engine PUBLIC phoenix::scene phoenix::vfs)
+    target_compile_definitions(phoenix_engine PRIVATE PHOENIX_HAS_SCENE=1)
 endif()

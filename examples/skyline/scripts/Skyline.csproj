@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Skyline's C# scripts, published as a NativeAOT shared library the engine loads:
+      dotnet publish scripts -c Release -r linux-x64 -o build/scripts
+    then run the app with  -script=build/scripts/Skyline.so  (see README.md).
+  -->
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishAot>true</PublishAot>
+    <NativeLib>Shared</NativeLib>
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Export phoenix_script_update/attach/shutdown defined in Phoenix.Framework. -->
+    <UnmanagedEntryPointsAssembly Include="Phoenix.Framework" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../packages/phoenix/src/Phoenix.Framework.csproj" />
+  </ItemGroup>
+</Project>

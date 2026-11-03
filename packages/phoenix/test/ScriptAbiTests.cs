@@ -12,11 +12,11 @@ public sealed class ScriptAbiTests
     [Fact]
     public void StructSizesMatchTheCAbi()
     {
-        Assert.Equal(1u, ScriptAbi.AbiVersion);
+        Assert.Equal(2u, ScriptAbi.AbiVersion);
         Assert.Equal(32, Unsafe.SizeOf<PhxBody2D>());
         Assert.Equal(32, Unsafe.SizeOf<PhxDrawRect>());
         Assert.Equal(48, Unsafe.SizeOf<PhxFrameInfo>());
-        Assert.Equal(8 + (6 * IntPtr.Size), Unsafe.SizeOf<PhxEngineApi>());
+        Assert.Equal(8 + (13 * IntPtr.Size), Unsafe.SizeOf<PhxEngineApi>());
     }
 
     [Theory]

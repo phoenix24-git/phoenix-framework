@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-#define PHX_SCRIPT_ABI_VERSION 1u
+#define PHX_SCRIPT_ABI_VERSION 2u
 
 #define PHX_LOG_LEVEL_INFO 0
 #define PHX_LOG_LEVEL_WARN 1
@@ -41,13 +41,21 @@ typedef struct PhxBody2D {
     uint32_t flags; /* bit 0: dynamic */
 } PhxBody2D;
 
-/* One rectangle in the frame display list. 32 bytes. Logical pixels, y down. */
+/* PhxDrawRect.flags */
+#define PHX_DRAW_PARALLELOGRAM 1u /* see PhxDrawRect */
+
+/* One filled shape in the frame display list. 32 bytes. Logical pixels, y down.
+ *
+ * flags == 0: a rectangle (x, y, w, h) rotated by `rotation` radians around its center.
+ * flags & PHX_DRAW_PARALLELOGRAM: the parallelogram with corner (x, y) and edges
+ *   a = (w, h) and b = (rotation, corner_radius), i.e. corners o, o+a, o+a+b, o+b. Any 2D
+ *   affine image of a square, so it draws box faces for isometric 3D, sheared panels, etc. */
 typedef struct PhxDrawRect {
     float x, y, w, h;
     uint32_t rgba;
-    float rotation;      /* radians around the rect center */
-    float corner_radius; /* reserved */
-    uint32_t reserved;
+    float rotation;      /* radians; parallelogram: edge b.x */
+    float corner_radius; /* reserved (0); parallelogram: edge b.y */
+    uint32_t flags;      /* PHX_DRAW_* */
 } PhxDrawRect;
 
 /* Per-frame input handed to scripts. 48 bytes. */
@@ -73,16 +81,41 @@ typedef struct PhxEngineApi {
     void (*apply_impulse)(void* engine, uint32_t body, float ix, float iy);
     const PhxBody2D* (*bodies)(void* engine, uint32_t* out_count);
     PhxDrawRect* (*draw_rects)(void* engine, uint32_t count);
+
+    /* --- Scene (GameObjects). Available when the app runs a scene (runScene); otherwise the
+     * functions return 0/NULL. Objects are 64-bit handles, 0 = none; a destroyed object's
+     * handle never comes back to life. Names are UTF-8. */
+    uint64_t (*find_object)(void* engine, const char* name);
+    uint64_t (*create_object)(void* engine, const char* name, uint64_t parent);
+    /* Unity's Object.Destroy: deferred to the end of the frame, children included. */
+    void (*destroy_object)(void* engine, uint64_t object);
+    uint32_t (*object_alive)(void* engine, uint64_t object);
+    void (*set_active)(void* engine, uint64_t object, uint32_t active);
+    /* Zero-copy access to a component's data inside ECS chunk memory ("Transform" is the
+     * LocalTransform struct). With add != 0 the component is added when missing. NULL if the
+     * object or component doesn't exist. Valid until the next structural change (adding or
+     * removing components, destroying objects): fetch it again each frame. */
+    void* (*get_component)(void* engine, uint64_t object, const char* type, uint32_t add);
+    /* Pointer to one field of a component (e.g. "MeshRenderer", "color"); *out_size receives
+     * the field's size in bytes so callers can check the type they read it as. */
+    void* (*get_field)(void* engine, uint64_t object, const char* type, const char* field,
+                       uint32_t* out_size);
 } PhxEngineApi;
 
 /* Symbols a script module exports (C# via [UnmanagedCallersOnly(EntryPoint=...)]). */
 typedef int32_t (*PhxScriptInitFn)(const PhxEngineApi* api);
 typedef void (*PhxScriptUpdateFn)(const PhxFrameInfo* frame);
 typedef void (*PhxScriptShutdownFn)(void);
+/* Optional: attaches an instance of `class_name` (e.g. "Skyline.StackGame") to `object`, for
+ * scene files' [script] sections. `properties` is "key=value" lines (the section's
+ * assignments, values in Godot text syntax). Returns 0 on success. */
+typedef int32_t (*PhxScriptAttachFn)(uint64_t object, const char* class_name,
+                                     const char* properties);
 
 #define PHX_SCRIPT_INIT_SYMBOL "phoenix_script_init"
 #define PHX_SCRIPT_UPDATE_SYMBOL "phoenix_script_update"
 #define PHX_SCRIPT_SHUTDOWN_SYMBOL "phoenix_script_shutdown"
+#define PHX_SCRIPT_ATTACH_SYMBOL "phoenix_script_attach"
 
 #ifdef __cplusplus
 } /* extern "C" */

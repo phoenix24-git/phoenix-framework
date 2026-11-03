@@ -11,6 +11,13 @@
 #include "phoenix/widgets.h"
 #include "shell/devtools_bridge.h"
 
+#if PHOENIX_HAS_SCENE
+#include "core/variant/variant_parser.h"
+#include "core_runtime.h"
+#include "phoenix/scene/scene_file.h"
+#include "phoenix/scene/scene_renderer.h"
+#endif
+
 namespace phoenix {
 
 namespace {
@@ -47,6 +54,104 @@ const PhxBody2D* api_bodies(void* e, std::uint32_t* count) {
 PhxDrawRect* api_draw_rects(void* e, std::uint32_t count) {
     return static_cast<Engine*>(e)->reserve_rects(count);
 }
+
+// --- Scene ABI: GameObject handles are (generation + 1) << 32 | index, so 0 means "none" ---
+#if PHOENIX_HAS_SCENE
+std::uint64_t to_handle(ecs::Entity e) {
+    return e.valid() ? ((std::uint64_t(e.generation) + 1) << 32) | e.index : 0;
+}
+scene::GameObject resolve(void* e, std::uint64_t handle) {
+    scene::Scene* sc = static_cast<Engine*>(e)->scene();
+    if (!sc || handle == 0) {
+        return {};
+    }
+    const ecs::Entity ent{static_cast<std::uint32_t>(handle),
+                          static_cast<std::uint32_t>((handle >> 32) - 1)};
+    const scene::GameObject go(sc, ent);
+    return go.valid() ? go : scene::GameObject();
+}
+const ecs::ComponentInfo* component_type(const char* type) {
+    String name = String::utf8(type ? type : "");
+    if (name == "Transform") {
+        name = "LocalTransform";
+    }
+    const ecs::ComponentInfo* info = ecs::ComponentRegistry::instance().find(name);
+    return info && info->size > 0 ? info : nullptr;
+}
+std::uint64_t api_find_object(void* e, const char* name) {
+    scene::Scene* sc = static_cast<Engine*>(e)->scene();
+    return sc && name ? to_handle(sc->Find(String::utf8(name)).entity()) : 0;
+}
+std::uint64_t api_create_object(void* e, const char* name, std::uint64_t parent) {
+    scene::Scene* sc = static_cast<Engine*>(e)->scene();
+    if (!sc) {
+        return 0;
+    }
+    scene::GameObject go = sc->CreateGameObject(String::utf8(name ? name : "GameObject"));
+    if (const scene::GameObject p = resolve(e, parent); p.valid()) {
+        go.transform().SetParent(p.transform(), /*world_position_stays=*/false);
+    }
+    return to_handle(go.entity());
+}
+void api_destroy_object(void* e, std::uint64_t object) {
+    if (resolve(e, object).valid()) {
+        static_cast<Engine*>(e)->destroy_later(object);
+    }
+}
+std::uint32_t api_object_alive(void* e, std::uint64_t object) {
+    return resolve(e, object).valid() ? 1u : 0u;
+}
+void api_set_active(void* e, std::uint64_t object, std::uint32_t active) {
+    if (scene::GameObject go = resolve(e, object); go.valid()) {
+        go.SetActive(active != 0);
+    }
+}
+void* api_get_component(void* e, std::uint64_t object, const char* type, std::uint32_t add) {
+    const scene::GameObject go = resolve(e, object);
+    const ecs::ComponentInfo* info = component_type(type);
+    if (!go.valid() || !info) {
+        return nullptr;
+    }
+    ecs::World& world = go.scene()->world();
+    if (!world.has_component(go.entity(), info->id)) {
+        if (!add || world.iterating()) {
+            return nullptr;
+        }
+        world.add_component(go.entity(), info->id);
+    }
+    return world.get_component(go.entity(), info->id, /*mark_changed=*/true);
+}
+void* api_get_field(void* e, std::uint64_t object, const char* type, const char* field,
+                    std::uint32_t* out_size) {
+    const ecs::ComponentInfo* info = component_type(type);
+    const ecs::FieldInfo* f = info && field ? info->field(field) : nullptr;
+    auto* data = f ? static_cast<std::byte*>(api_get_component(e, object, type, 0)) : nullptr;
+    if (out_size) {
+        *out_size = data ? f->size : 0;
+    }
+    return data ? data + f->offset : nullptr;
+}
+#else
+std::uint64_t api_find_object(void*, const char*) {
+    return 0;
+}
+std::uint64_t api_create_object(void*, const char*, std::uint64_t) {
+    return 0;
+}
+void api_destroy_object(void*, std::uint64_t) {}
+std::uint32_t api_object_alive(void*, std::uint64_t) {
+    return 0;
+}
+void api_set_active(void*, std::uint64_t, std::uint32_t) {}
+void* api_get_component(void*, std::uint64_t, const char*, std::uint32_t) {
+    return nullptr;
+}
+void* api_get_field(void*, std::uint64_t, const char*, const char*, std::uint32_t* out_size) {
+    if (out_size)
+        *out_size = 0;
+    return nullptr;
+}
+#endif
 
 }  // namespace
 
@@ -121,8 +226,21 @@ bool Engine::init(const EngineConfig& config) {
     storage_.start(pref ? pref : "");
     SDL_free(pref);
 
-    api_ = PhxEngineApi{PHX_SCRIPT_ABI_VERSION, sizeof(PhxEngineApi), this,       api_log,
-                        api_spawn_box,          api_apply_impulse,    api_bodies, api_draw_rects};
+    api_ = PhxEngineApi{PHX_SCRIPT_ABI_VERSION,
+                        sizeof(PhxEngineApi),
+                        this,
+                        api_log,
+                        api_spawn_box,
+                        api_apply_impulse,
+                        api_bodies,
+                        api_draw_rects,
+                        api_find_object,
+                        api_create_object,
+                        api_destroy_object,
+                        api_object_alive,
+                        api_set_active,
+                        api_get_component,
+                        api_get_field};
     set_engine_api(&api_);
     if (!config_.script_module.empty()) {
         scripts_.load(config_.script_module, &api_);
@@ -207,8 +325,18 @@ bool Engine::iterate() {
                          0};
 
     scripts_.update(frame);
+    flush_destroyed();
 
+    // The 3D scene first, then the widget UI and script draws on top.
     display_list_.clear();
+    std::uint32_t clear_rgba = 0x101018FFu;
+#if PHOENIX_HAS_SCENE
+    if (scene_) {
+        scene_->Update(dt);
+        clear_rgba = scene::render_scene(*scene_, static_cast<float>(w), static_cast<float>(h),
+                                         display_list_);
+    }
+#endif
     WidgetsBinding::instance().drawFrame({static_cast<float>(w), static_cast<float>(h)},
                                          {pointer_x_, pointer_y_}, pointer_down_, tapped_,
                                          display_list_);
@@ -218,8 +346,13 @@ bool Engine::iterate() {
     }
     script_rects_.clear();
 
+    if (renderer_ && !config_.screenshot.empty() && config_.max_frames &&
+        stats_.frame + 1 == config_.max_frames) {
+        if (!renderer_->capture_next_frame(config_.screenshot.c_str()))
+            PHX_LOG_WARN("Engine: renderer %s can't capture frames", renderer_name());
+    }
     if (renderer_) {
-        renderer_->render(display_list_, static_cast<float>(w), static_cast<float>(h), 0x101018FFu);
+        renderer_->render(display_list_, static_cast<float>(w), static_cast<float>(h), clear_rgba);
     }
 
     stats_.arena_high_water = frame_arena_.high_water();
@@ -258,7 +391,14 @@ void Engine::shutdown() {
     }
     PHX_LOG_INFO("Engine: shutting down after %llu frames",
                  static_cast<unsigned long long>(stats_.frame));
-    scripts_.unload();
+    scripts_.unload();  // scripts hold pointers into the scene: unload them first
+#if PHOENIX_HAS_SCENE
+    scene_.reset();
+    if (core_started_) {
+        foundation::CoreRuntime::finalize();
+        core_started_ = false;
+    }
+#endif
     set_engine_api(nullptr);
     storage_.stop();
     physics_.shutdown();
@@ -270,6 +410,87 @@ void Engine::shutdown() {
     frame_arena_.release();
     g_engine = nullptr;
     SDL_Quit();
+}
+
+void Engine::flush_destroyed() {
+#if PHOENIX_HAS_SCENE
+    for (const std::uint64_t handle : pending_destroy_) {
+        if (const scene::GameObject go = resolve(this, handle); go.valid()) {
+            scene_->Destroy(go);
+        }
+    }
+#endif
+    pending_destroy_.clear();
+}
+
+bool Engine::start_core() {
+#if PHOENIX_HAS_SCENE
+    if (core_started_) {
+        return true;
+    }
+    foundation::CoreOptions options;
+    options.app_name = String::utf8(config_.app_name.c_str());
+    std::string res = config_.res_dir;
+    if (res.empty()) {
+#ifdef __EMSCRIPTEN__
+        res = "/res";
+#else
+        const char* base = SDL_GetBasePath();
+        res = std::string(base ? base : "") + "res";
+#endif
+    }
+    options.resource_dir = String::utf8(res.c_str());
+    options.worker_threads = static_cast<int>(std::max(1u, config_.profile.worker_threads));
+    core_started_ = foundation::CoreRuntime::initialize(options);
+    if (core_started_) {
+        PHX_LOG_INFO("Engine: foundation core up, res:// = %s", res.c_str());
+    }
+    return core_started_;
+#else
+    return false;
+#endif
+}
+
+bool Engine::run_scene(const std::string& path) {
+#if PHOENIX_HAS_SCENE
+    if (!start_core()) {
+        PHX_LOG_ERROR("Scene: the foundation core failed to start");
+        return false;
+    }
+    scene_ = std::make_unique<scene::Scene>();
+    const scene::SceneLoadResult result = scene::load_scene(*scene_, String::utf8(path.c_str()));
+    if (!result) {
+        PHX_LOG_ERROR("Scene: %s", result.message.utf8().get_data());
+        scene_.reset();
+        return false;
+    }
+    int attached = 0;
+    for (const scene::SceneScript& script : result.scripts) {
+        // Properties travel as "key=value" lines in Godot's text syntax.
+        String props;
+        for (const KeyValue<Variant, Variant>& kv : script.properties) {
+            String text;
+            VariantWriter::write_to_string(kv.value, text);
+            props += String(kv.key) + "=" + text + "\n";
+        }
+        if (scripts_.attach(to_handle(script.gameObject.entity()),
+                            script.class_name.utf8().get_data(), props.utf8().get_data())) {
+            ++attached;
+        }
+    }
+    PHX_LOG_INFO("Scene: %s loaded (%u objects, %d of %d scripts attached)", path.c_str(),
+                 static_cast<unsigned>(scene_->gameObjectCount()), attached,
+                 static_cast<int>(result.scripts.size()));
+    return true;
+#else
+    PHX_LOG_ERROR("Scene: %s needs an engine built with PHOENIX_WITH_FOUNDATION", path.c_str());
+    return false;
+#endif
+}
+
+bool runScene(std::string_view path) {
+    Engine* e = Engine::current();
+    return e && e->run_scene(std::string(path));
 }
 
 // --- phoenix/storage.h --------------------------------------------------------

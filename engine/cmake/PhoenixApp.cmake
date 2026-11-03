@@ -44,6 +44,18 @@ function(phoenix_add_app app_dir)
         OUTPUT_NAME "${PHOENIX_APP_NAME}"
         RUNTIME_OUTPUT_DIRECTORY "${PHOENIX_APP_OUTPUT_DIR}")
 
+    # res/ is the app's res:// (scenes, data). Desktop: copied next to the executable after each
+    # build. Web: packaged into the virtual file system at /res.
+    if(EXISTS "${app_dir}/res")
+        if(EMSCRIPTEN)
+            target_link_options(phoenix_app PRIVATE "SHELL:--preload-file \"${app_dir}/res@/res\"")
+        else()
+            add_custom_command(TARGET phoenix_app POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_directory "${app_dir}/res" "$<TARGET_FILE_DIR:phoenix_app>/res"
+                COMMENT "Copying res/ (res://)")
+        endif()
+    endif()
+
     if(EMSCRIPTEN)
         math(EXPR pool "${PHOENIX_WORKER_THREADS} + 4")  # workers + IO + OPFS + spare
         target_link_options(phoenix_app PRIVATE
