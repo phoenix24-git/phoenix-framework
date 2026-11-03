@@ -65,7 +65,7 @@ class Archetype {
     std::size_t entity_count() const;
 
     void* column_ptr(const Chunk& c, int column) const {
-        return c.data + offsets_[std::size_t(column)];
+        return c.data + offsets_[std::uint32_t(column)];
     }
     template <typename T>
     T* column(const Chunk& c, int column) const {
@@ -73,9 +73,9 @@ class Archetype {
     }
     void* element(const Chunk& c, int column, std::uint32_t row) const {
         return static_cast<std::byte*>(column_ptr(c, column)) +
-               std::size_t(row) * sizes_[std::size_t(column)];
+               std::size_t(row) * sizes_[std::uint32_t(column)];
     }
-    std::uint32_t column_size(int column) const { return sizes_[std::size_t(column)]; }
+    std::uint32_t column_size(int column) const { return sizes_[std::uint32_t(column)]; }
 
   private:
     friend class World;
@@ -205,7 +205,7 @@ T& World::add(Entity e, Args&&... args) {
         move_entity(e, with_component(records_[e.index].archetype, id));
         const Record& r = records_[e.index];
         const int col = r.archetype->column_of(id);
-        r.chunk->versions[std::size_t(col)] = tick_;
+        r.chunk->versions[std::uint32_t(col)] = tick_;
         storage = r.archetype->element(*r.chunk, col, r.row);
         if constexpr (!std::is_empty_v<T>) {
             new (storage) T(std::forward<Args>(args)...);
@@ -252,7 +252,7 @@ class Query {
     /// fn(Ts&...) or fn(Entity, Ts&...)
     template <typename Fn>
     void each(Fn&& fn) {
-        for_each_chunk([&](Chunk& c, Entity* entities, Ts*... cols) {
+        for_each_chunk([&](Chunk& c, [[maybe_unused]] Entity* entities, Ts*... cols) {
             for (std::uint32_t i = 0; i < c.count; ++i) {
                 if constexpr (std::is_invocable_v<Fn&, Entity, Ts&...>) {
                     fn(entities[i], cols[i]...);
@@ -313,7 +313,7 @@ class Query {
     bool chunk_changed(const Archetype& a, const Chunk& c) const {
         for (const auto& [id, since] : changed_) {
             const int col = a.column_of(id);
-            if (col < 0 || c.versions[std::size_t(col)] <= since)
+            if (col < 0 || c.versions[std::uint32_t(col)] <= since)
                 return false;
         }
         return true;
@@ -327,7 +327,7 @@ class Query {
             using T = std::remove_pointer_t<decltype(tag)>;
             const int index = a.column_of(component_id<std::remove_const_t<T>>());
             if constexpr (!std::is_const_v<T>)
-                c.versions[std::size_t(index)] = tick;
+                c.versions[std::uint32_t(index)] = tick;
             return static_cast<T*>(a.column_ptr(c, index));
         };
         fn(c, c.entities(), col(static_cast<Ts*>(nullptr))...);
