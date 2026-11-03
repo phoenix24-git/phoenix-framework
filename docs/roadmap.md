@@ -5,6 +5,11 @@ nav_order: 10
 
 # Roadmap
 
+{: .note }
+This page tracks the MVP's near-term work. The long-term plan, with Godot-style servers, ECS with
+the Unity component mapping, the Unreal-class rendering feature catalogue, render pipelines, Slang
+with slang-rhi, and the web-first editor, is in the **[Engine roadmap](engine/index.md)**.
+
 Honest status of the MVP and what comes next. Items are ordered roughly by priority.
 
 ## Works today (tested in CI)

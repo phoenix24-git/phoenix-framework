@@ -8,6 +8,18 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Engine roadmap** (`docs/engine/`):
+  - Godot `core/` study
+  - Godot-style server architecture
+  - Unreal-class rendering feature catalogue (from public research)
+  - SRP-style Mobile/Desktop/Ultra pipelines
+  - archetype ECS with a Unity-style API and the full Unity component mapping
+  - nested prefabs
+  - Godot `.tscn`/`.tres`/`.scn`/`.import` support plan
+  - Slang + SDL_GPU + slang-rhi plan
+  - web-first PWA editor
+- ADRs 0005–0008.
+
 - `phoenix build web -o/--output <dir>`: publishes the finished bundle to a folder. It only replaces a
   folder that is empty or holds a previous Phoenix bundle.
 - Documentation site in `docs/`, served by GitHub Pages from `main /docs` with Jekyll and
