@@ -250,6 +250,41 @@ bool Engine::init(const EngineConfig& config) {
     return true;
 }
 
+namespace {
+KeyEvent translate_key(const SDL_KeyboardEvent& k) {
+    KeyEvent e;
+    e.ctrl = (k.mod & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) != 0;
+    e.shift = (k.mod & SDL_KMOD_SHIFT) != 0;
+    e.alt = (k.mod & SDL_KMOD_ALT) != 0;
+    const SDL_Keycode code = k.key;
+    switch (code) {
+        case SDLK_RETURN:
+        case SDLK_KP_ENTER: e.key = Key::enter; return e;
+        case SDLK_ESCAPE: e.key = Key::escape; return e;
+        case SDLK_BACKSPACE: e.key = Key::backspace; return e;
+        case SDLK_DELETE: e.key = Key::del; return e;
+        case SDLK_TAB: e.key = Key::tab; return e;
+        case SDLK_LEFT: e.key = Key::left; return e;
+        case SDLK_RIGHT: e.key = Key::right; return e;
+        case SDLK_UP: e.key = Key::up; return e;
+        case SDLK_DOWN: e.key = Key::down; return e;
+        case SDLK_HOME: e.key = Key::home; return e;
+        case SDLK_END: e.key = Key::end; return e;
+        case SDLK_PAGEUP: e.key = Key::pageUp; return e;
+        case SDLK_PAGEDOWN: e.key = Key::pageDown; return e;
+        default: break;
+    }
+    if (code >= SDLK_F1 && code <= SDLK_F12) {
+        e.key = static_cast<Key>(static_cast<int>(Key::f1) + static_cast<int>(code - SDLK_F1));
+    } else if (code >= 0x20 && code < 0x7F) {
+        // SDL keycodes for printable keys are their (lower-case) ASCII characters.
+        e.key = Key::character;
+        e.ch = static_cast<char>(code);
+    }
+    return e;
+}
+}  // namespace
+
 bool Engine::handle_event(const SDL_Event& event) {
     switch (event.type) {
         case SDL_EVENT_QUIT:
@@ -262,14 +297,23 @@ bool Engine::handle_event(const SDL_Event& event) {
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
             pointer_x_ = event.button.x;
             pointer_y_ = event.button.y;
-            pointer_down_ = true;
+            if (event.button.button == SDL_BUTTON_LEFT) {
+                pointer_down_ = true;
+                input_.pressed = true;
+            }
             break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
             pointer_x_ = event.button.x;
             pointer_y_ = event.button.y;
-            if (pointer_down_)
-                tapped_ = true;
-            pointer_down_ = false;
+            if (event.button.button == SDL_BUTTON_LEFT) {
+                if (pointer_down_)
+                    input_.released = true;
+                pointer_down_ = false;
+            }
+            break;
+        case SDL_EVENT_MOUSE_WHEEL:
+            input_.scrollX += event.wheel.x;
+            input_.scrollY -= event.wheel.y;  // SDL: +y away from the user; ours: +y scrolls down
             break;
         case SDL_EVENT_FINGER_DOWN:
         case SDL_EVENT_FINGER_UP: {
@@ -278,11 +322,23 @@ bool Engine::handle_event(const SDL_Event& event) {
             pointer_x_ = event.tfinger.x * w;
             pointer_y_ = event.tfinger.y * h;
             const bool down = event.type == SDL_EVENT_FINGER_DOWN;
+            if (down)
+                input_.pressed = true;
             if (!down && pointer_down_)
-                tapped_ = true;
+                input_.released = true;
             pointer_down_ = down;
             break;
         }
+        case SDL_EVENT_KEY_DOWN: {
+            const KeyEvent key = translate_key(event.key);
+            if (key.key != Key::unknown)
+                input_.keys.push_back(key);
+            break;
+        }
+        case SDL_EVENT_TEXT_INPUT:
+            if (event.text.text)
+                input_.text += event.text.text;
+            break;
         default:
             break;
     }
@@ -341,10 +397,19 @@ bool Engine::iterate() {
                                          display_list_);
     }
 #endif
-    WidgetsBinding::instance().drawFrame({static_cast<float>(w), static_cast<float>(h)},
-                                         {pointer_x_, pointer_y_}, pointer_down_, tapped_,
-                                         display_list_);
-    tapped_ = false;
+    input_.pointer = {pointer_x_, pointer_y_};
+    input_.pointerDown = pointer_down_;
+    WidgetsBinding& binding = WidgetsBinding::instance();
+    binding.drawFrame({static_cast<float>(w), static_cast<float>(h)}, input_, display_list_);
+    input_ = FrameInput{};
+    // Text input (IME, on-screen keyboards) only while a text field has focus.
+    if (window_ && binding.wantsTextInput() != text_input_on_) {
+        text_input_on_ = binding.wantsTextInput();
+        if (text_input_on_)
+            SDL_StartTextInput(window_);
+        else
+            SDL_StopTextInput(window_);
+    }
     for (const auto& sr : script_rects_) {
         display_list_.insert(display_list_.end(), sr.data, sr.data + sr.count);
     }

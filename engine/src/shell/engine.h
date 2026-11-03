@@ -10,6 +10,7 @@
 #include "core/job_system.h"
 #include "phoenix/console_profile.h"
 #include "phoenix/script_abi.h"
+#include "phoenix/widgets.h"
 #include "physics/physics_world.h"
 #include "renderer/renderer.h"
 #include "scripting/script_host.h"
@@ -126,7 +127,9 @@ class Engine {
     std::uint64_t frames_since_publish_ = 0;
     float pointer_x_ = 0, pointer_y_ = 0;
     bool pointer_down_ = false;
-    bool tapped_ = false;
+    /// Input gathered from SDL events since the last frame (presses, wheel, keys, text).
+    FrameInput input_;
+    bool text_input_on_ = false;
     bool quit_ = false;
 };
 

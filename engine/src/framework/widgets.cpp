@@ -41,20 +41,37 @@ BoxConstraints BoxConstraints::deflate(const EdgeInsets& e) const {
             std::min(std::max(0.0f, minHeight - v), max_h), max_h};
 }
 
+namespace {
+Rect intersect(const Rect& a, const Rect& b) {
+    const float x0 = std::max(a.x, b.x), y0 = std::max(a.y, b.y);
+    const float x1 = std::min(a.x + a.width, b.x + b.width);
+    const float y1 = std::min(a.y + a.height, b.y + b.height);
+    return {x0, y0, std::max(0.0f, x1 - x0), std::max(0.0f, y1 - y0)};
+}
+}  // namespace
+
+PaintContext::PaintContext(std::vector<PhxDrawRect>& out, Offset pointer, bool pointer_down)
+    : out_(out), input_(&owned_input_) {
+    owned_input_.pointer = pointer;
+    owned_input_.pointerDown = pointer_down;
+}
+
+PaintContext::PaintContext(std::vector<PhxDrawRect>& out, const FrameInput& input)
+    : out_(out), input_(&input) {}
+
 void PaintContext::pushClip(Rect r) {
-    if (!clips_.empty()) {
-        const Rect& c = clips_.back();
-        const float x0 = std::max(r.x, c.x), y0 = std::max(r.y, c.y);
-        const float x1 = std::min(r.x + r.width, c.x + c.width);
-        const float y1 = std::min(r.y + r.height, c.y + c.height);
-        r = {x0, y0, std::max(0.0f, x1 - x0), std::max(0.0f, y1 - y0)};
-    }
+    if (!clips_.empty())
+        r = intersect(r, clips_.back());
     clips_.push_back(r);
 }
 
 void PaintContext::popClip() {
     if (!clips_.empty())
         clips_.pop_back();
+}
+
+Rect PaintContext::clip() const {
+    return clips_.empty() ? Rect{-1e9f, -1e9f, 2e9f, 2e9f} : clips_.back();
 }
 
 void PaintContext::drawRect(Rect r, Color c, float rotation) {
@@ -67,20 +84,85 @@ void PaintContext::drawRect(Rect r, Color c, float rotation) {
             if (!clip.contains({r.x + r.width * 0.5f, r.y + r.height * 0.5f}))
                 return;
         } else {
-            const float x0 = std::max(r.x, clip.x), y0 = std::max(r.y, clip.y);
-            const float x1 = std::min(r.x + r.width, clip.x + clip.width);
-            const float y1 = std::min(r.y + r.height, clip.y + clip.height);
-            if (x1 <= x0 || y1 <= y0)
+            r = intersect(r, clip);
+            if (r.width <= 0 || r.height <= 0)
                 return;
-            r = {x0, y0, x1 - x0, y1 - y0};
         }
     }
     out_.push_back(PhxDrawRect{r.x, r.y, r.width, r.height, c.rgba, rotation, 0.0f, 0u});
 }
 
+void PaintContext::drawBorder(Rect r, Color c, float t) {
+    drawRect({r.x, r.y, r.width, t}, c);
+    drawRect({r.x, r.y + r.height - t, r.width, t}, c);
+    drawRect({r.x, r.y + t, t, r.height - 2 * t}, c);
+    drawRect({r.x + r.width - t, r.y + t, t, r.height - 2 * t}, c);
+}
+
 void PaintContext::addHitTarget(Rect r, std::function<void(Offset)> on_tap) {
     if (on_tap) {
-        hits_.push_back({r, std::move(on_tap)});
+        addInteraction(r, {.onTap = std::move(on_tap)});
+    }
+}
+
+void PaintContext::addInteraction(Rect r, PointerHandlers handlers) {
+    if (!clips_.empty())
+        r = intersect(r, clips_.back());
+    if (r.width <= 0 || r.height <= 0)
+        return;
+    hits_.push_back({r, std::move(handlers)});
+}
+
+void PaintContext::addKeyHandler(FocusNode* focus, std::function<bool(const KeyEvent&)> on_key,
+                                 std::function<void(const std::string&)> on_text) {
+    keys_.push_back({focus, std::move(on_key), std::move(on_text)});
+}
+
+void PaintContext::addOverlay(std::function<void(PaintContext&)> painter) {
+    if (painter)
+        overlays_.push_back(std::move(painter));
+}
+
+bool PaintContext::hovered(Rect r) const {
+    const WidgetsBinding& b = WidgetsBinding::instance();
+    if (!r.contains(input_->pointer))
+        return false;
+    if (!b.pointerCaptured())
+        return true;
+    // While a region holds the press, only that region shows hover.
+    const Rect overlap = intersect(r, b.captureRect());
+    return overlap.width > 0 && overlap.height > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Focus
+// ---------------------------------------------------------------------------
+FocusNode::~FocusNode() {
+    onBlur = nullptr;
+    unfocus();
+}
+
+bool FocusNode::hasFocus() const {
+    return WidgetsBinding::instance().focused() == this;
+}
+
+void FocusNode::requestFocus() {
+    WidgetsBinding::instance().setFocus(this);
+}
+
+void FocusNode::unfocus() {
+    if (hasFocus())
+        WidgetsBinding::instance().setFocus(nullptr);
+}
+
+void WidgetsBinding::setFocus(FocusNode* node) {
+    if (focused_ == node)
+        return;
+    FocusNode* old = focused_;
+    focused_ = node;
+    if (old && old->onBlur) {
+        auto on_blur = old->onBlur;  // the callback may destroy or refocus the node
+        on_blur();
     }
 }
 
@@ -312,25 +394,7 @@ class TextWidget final : public Widget {
 
     void paint(PaintContext& ctx, Offset o) override {
         ctx.addSemantics(text_, {o.x, o.y, size_.width, size_.height});
-        const float px = style_.fontSize / font5x7::kGlyphHeight;
-        float pen_x = o.x;
-        for (char ch : text_) {
-            for (int row = 0; row < font5x7::kGlyphHeight; ++row) {
-                int col = 0;
-                while (col < font5x7::kGlyphWidth) {
-                    if (!font5x7::pixel(ch, col, row)) {
-                        ++col;
-                        continue;
-                    }
-                    const int start = col;
-                    while (col < font5x7::kGlyphWidth && font5x7::pixel(ch, col, row))
-                        ++col;
-                    ctx.drawRect({pen_x + start * px, o.y + row * px, (col - start) * px, px},
-                                 style_.color);
-                }
-            }
-            pen_x += font5x7::kAdvance * px;
-        }
+        drawText(ctx, o, text_, style_);
     }
 
   private:
@@ -528,6 +592,34 @@ Size measureText(const std::string& text, float font_size) {
     return {(static_cast<float>(text.size()) * font5x7::kAdvance - 1) * px, font_size};
 }
 
+void drawText(PaintContext& ctx, Offset o, const std::string& text, TextStyle style) {
+    const float px = style.fontSize / font5x7::kGlyphHeight;
+    const Rect clip = ctx.clip();
+    float pen_x = o.x;
+    for (char ch : text) {
+        const float advance = font5x7::kAdvance * px;
+        if (pen_x > clip.x + clip.width)
+            break;  // the rest is clipped away
+        if (pen_x + advance >= clip.x && ch != ' ') {
+            for (int row = 0; row < font5x7::kGlyphHeight; ++row) {
+                int col = 0;
+                while (col < font5x7::kGlyphWidth) {
+                    if (!font5x7::pixel(ch, col, row)) {
+                        ++col;
+                        continue;
+                    }
+                    const int start = col;
+                    while (col < font5x7::kGlyphWidth && font5x7::pixel(ch, col, row))
+                        ++col;
+                    ctx.drawRect({pen_x + start * px, o.y + row * px, (col - start) * px, px},
+                                 style.color);
+                }
+            }
+        }
+        pen_x += advance;
+    }
+}
+
 WidgetPtr GestureDetector(GestureDetectorProps props) {
     return std::make_shared<GestureDetectorWidget>(std::move(props));
 }
@@ -576,26 +668,169 @@ void runApp(WidgetPtr root) {
 
 void WidgetsBinding::drawFrame(Size viewport, Offset pointer, bool pointer_down, bool tapped,
                                std::vector<PhxDrawRect>& out) {
+    FrameInput input;
+    input.pointer = pointer;
+    input.pointerDown = pointer_down;
+    input.pressed = pointer_down && !was_down_;
+    input.released = tapped;
+    drawFrame(viewport, input, out);
+}
+
+namespace {
+void flush_overlays(PaintContext& ctx) {
+    // Overlay painters may add more overlays (a submenu inside a menu).
+    for (int guard = 0; guard < 16 && !ctx.overlays().empty(); ++guard) {
+        auto painters = std::move(ctx.overlays());
+        ctx.overlays().clear();
+        for (auto& painter : painters)
+            painter(ctx);
+    }
+}
+
+constexpr float kDragSlop = 3.0f;
+}  // namespace
+
+void WidgetsBinding::drawFrame(Size viewport, const FrameInput& input,
+                               std::vector<PhxDrawRect>& out) {
     ++frames_;
-    if (!root_) {
+    if (!root_ && !overlay_) {
+        was_down_ = input.pointerDown;
         return;
     }
     rebuilding_ = needs_build_;
     needs_build_ = false;
-    root_->layout(BoxConstraints::tight(viewport));
+    // Keep the trees alive for the whole frame: callbacks may replace them.
+    const WidgetPtr root = root_;
+    const WidgetPtr overlay = overlay_;
+    if (root)
+        root->layout(BoxConstraints::tight(viewport));
+    if (overlay)
+        overlay->layout(BoxConstraints::tight(viewport));
     rebuilding_ = false;
 
-    PaintContext ctx(out, pointer, pointer_down);
-    root_->paint(ctx, {});
+    PaintContext ctx(out, input);
+    if (root) {
+        root->paint(ctx, {});
+        flush_overlays(ctx);
+    }
+    const std::size_t overlay_first_hit = ctx.hitTargets().size();
+    if (overlay) {
+        overlay->paint(ctx, {});
+        flush_overlays(ctx);
+    }
     semantics_ = std::move(ctx.semantics());
-    if (tapped) {
-        // Topmost (last painted) target wins, like Flutter's hit testing.
-        auto& hits = ctx.hitTargets();
-        for (auto it = hits.rbegin(); it != hits.rend(); ++it) {
-            if (it->rect.contains(pointer)) {
-                it->on_tap(pointer);
+    dispatch(ctx, input, overlay_first_hit);
+    was_down_ = input.pointerDown;
+}
+
+void WidgetsBinding::dispatch(PaintContext& ctx, const FrameInput& input,
+                              std::size_t overlay_first_hit) {
+    auto& hits = ctx.hitTargets();
+    const Offset p = input.pointer;
+
+    // Topmost (last painted) region under the pointer, like Flutter's hit testing.
+    PaintContext::HitTarget* top = nullptr;
+    over_overlay_ = false;
+    for (std::size_t i = hits.size(); i-- > 0;) {
+        if (hits[i].rect.contains(p)) {
+            top = &hits[i];
+            over_overlay_ = i >= overlay_first_hit;
+            break;
+        }
+    }
+
+    // A node that had focus while this frame was painted but registered no key handler
+    // has left the screen. (Checked before the press: a press may focus a new node.)
+    auto& key_targets = ctx.keyTargets();
+    if (focused_) {
+        const bool registered = std::any_of(key_targets.begin(), key_targets.end(),
+                                            [&](const auto& t) { return t.focus == focused_; });
+        if (!registered)
+            setFocus(nullptr);
+    }
+
+    if (input.pressed) {
+        setFocus(top ? top->handlers.focus : nullptr);
+        if (top) {
+            captured_ = true;
+            dragging_ = false;
+            capture_ = top->handlers;
+            capture_rect_ = top->rect;
+            press_pos_ = last_pos_ = p;
+            if (capture_.onPress)
+                capture_.onPress(p);
+        } else {
+            captured_ = false;
+        }
+    }
+
+    if (captured_ && input.pointerDown) {
+        if (!dragging_ && (std::fabs(p.x - press_pos_.x) > kDragSlop ||
+                           std::fabs(p.y - press_pos_.y) > kDragSlop)) {
+            dragging_ = true;
+        }
+        if (dragging_ && (p.x != last_pos_.x || p.y != last_pos_.y)) {
+            if (capture_.onDrag)
+                capture_.onDrag(p, {p.x - last_pos_.x, p.y - last_pos_.y});
+            last_pos_ = p;
+        }
+    }
+
+    if (input.released) {
+        if (captured_) {
+            const PointerHandlers handlers = std::move(capture_);
+            const bool was_drag = dragging_;
+            const bool inside = capture_rect_.contains(p);
+            captured_ = dragging_ = false;
+            capture_ = {};
+            if (was_drag) {
+                if (handlers.onDragEnd)
+                    handlers.onDragEnd(p);
+            } else if (inside && handlers.onTap) {
+                handlers.onTap(p);
+            }
+        } else if (!input.pressed && top && top->handlers.onTap) {
+            // A release without a press we saw (a click shorter than one frame).
+            top->handlers.onTap(p);
+        }
+    } else if (captured_ && !input.pointerDown) {
+        captured_ = dragging_ = false;  // the press ended without a release event
+        capture_ = {};
+    }
+
+    if (input.scrollX != 0 || input.scrollY != 0) {
+        for (std::size_t i = hits.size(); i-- > 0;) {
+            if (hits[i].rect.contains(p) && hits[i].handlers.onScroll) {
+                hits[i].handlers.onScroll({input.scrollX, input.scrollY});
                 break;
             }
+        }
+    }
+
+    // Keyboard: the focused node's handlers first, then shortcut handlers.
+    if (focused_ && !input.text.empty()) {
+        for (std::size_t i = key_targets.size(); i-- > 0;) {
+            if (key_targets[i].focus == focused_ && key_targets[i].on_text) {
+                key_targets[i].on_text(input.text);
+                break;
+            }
+        }
+    }
+    for (const KeyEvent& key : input.keys) {
+        bool consumed = false;
+        if (focused_) {
+            for (std::size_t i = key_targets.size(); i-- > 0 && !consumed;) {
+                if (key_targets[i].focus == focused_ && key_targets[i].on_key)
+                    consumed = key_targets[i].on_key(key);
+            }
+            if (!consumed && key.key == Key::escape) {
+                setFocus(nullptr);
+                consumed = true;
+            }
+        }
+        for (std::size_t i = key_targets.size(); i-- > 0 && !consumed;) {
+            if (key_targets[i].focus == nullptr && key_targets[i].on_key)
+                consumed = key_targets[i].on_key(key);
         }
     }
 }

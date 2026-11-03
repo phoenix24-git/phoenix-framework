@@ -28,7 +28,7 @@ if(PHOENIX_WITH_PHYSICS)
 endif()
 
 phoenix_engine_library(framework
-    SOURCES framework/widgets.cpp framework/engine_api.cpp
+    SOURCES framework/widgets.cpp framework/tool_widgets.cpp framework/engine_api.cpp
     DEPS phoenix::core)
 
 phoenix_engine_library(renderer

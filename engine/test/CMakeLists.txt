@@ -5,6 +5,7 @@ add_executable(phoenix_engine_tests
     job_system_test.cpp
     physics_test.cpp
     widgets_test.cpp
+    tool_widgets_test.cpp
     storage_test.cpp
     script_abi_test.cpp
     script_host_test.cpp)
