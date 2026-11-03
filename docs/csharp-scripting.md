@@ -32,24 +32,24 @@ using System.Runtime.InteropServices;
 using Phoenix;
 using Phoenix.Interop;
 
-public sealed class RainScript : PhoenixScript
+public sealed class RainScript : MetaBehaviour
 {
     private double _nextDrop;
 
-    public override void OnStart() => Engine.Log("RainScript attached");
+    protected override void Start() => Engine.Log("RainScript attached");
 
-    public override void OnUpdate(in PhxFrameInfo frame)
+    protected override void Update()   // Unity lifecycle names; Time.deltaTime etc. available
     {
-        if (frame.TimeSeconds >= _nextDrop)
+        if (Time.time >= _nextDrop)
         {
-            _nextDrop = frame.TimeSeconds + 0.5;
+            _nextDrop = Time.time + 0.5;
             Engine.SpawnBox(0, 14, 0.3f, 0.3f);
         }
         var bodies = Engine.Bodies;                  // span over engine memory
         var rects = Engine.DrawRects(bodies.Length); // span into this frame's display list
         for (var i = 0; i < rects.Length; i++)
         {
-            rects[i] = new PhxDrawRect { X = 8 + i * 6, Y = frame.ViewportHeight - 12,
+            rects[i] = new PhxDrawRect { X = 8 + i * 6, Y = Time.frame.ViewportHeight - 12,
                                          Width = 4, Height = 4, Rgba = bodies[i].Rgba };
         }
     }

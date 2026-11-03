@@ -4,17 +4,42 @@ using Phoenix.Interop;
 
 namespace Phoenix;
 
-/// <summary>Base class for gameplay scripts (like a Godot/Unity script, driven by the engine).</summary>
-public abstract class PhoenixScript
+/// <summary>
+/// Phoenix's MonoBehaviour: derive from it and override the Unity lifecycle methods you need.
+/// The engine calls Awake and Start when the script module attaches, Update every frame, and
+/// OnDestroy before the module unloads. Frame timing is available through <see cref="Time"/>.
+/// </summary>
+public abstract class MetaBehaviour
 {
-    /// <summary>Called once after the engine attached.</summary>
-    public virtual void OnStart() { }
+    /// <summary>Called once, first, when the script attaches.</summary>
+    protected internal virtual void Awake() { }
 
-    /// <summary>Called every frame before the UI is built.</summary>
-    public virtual void OnUpdate(in PhxFrameInfo frame) { }
+    /// <summary>Called once after Awake, before the first Update.</summary>
+    protected internal virtual void Start() { }
 
-    /// <summary>Called before the module is unloaded.</summary>
-    public virtual void OnShutdown() { }
+    /// <summary>Called every frame (see <see cref="Time.deltaTime"/>).</summary>
+    protected internal virtual void Update() { }
+
+    /// <summary>Called once before the script module unloads.</summary>
+    protected internal virtual void OnDestroy() { }
+}
+
+/// <summary>Unity-style frame timing, updated by the engine before each Update.</summary>
+public static class Time
+{
+#pragma warning disable CA1707, IDE1006 // Unity's lowerCamelCase names, on purpose: ported code compiles unchanged.
+    /// <summary>Seconds since the previous frame.</summary>
+    public static float deltaTime { get; internal set; }
+
+    /// <summary>Seconds since the engine started.</summary>
+    public static double time { get; internal set; }
+
+    /// <summary>Frames rendered so far.</summary>
+    public static long frameCount { get; internal set; }
+
+    /// <summary>The raw frame info the engine passed for the current frame.</summary>
+    public static PhxFrameInfo frame { get; internal set; }
+#pragma warning restore CA1707, IDE1006
 }
 
 /// <summary>
@@ -29,11 +54,11 @@ public abstract class PhoenixScript
 /// </summary>
 public static unsafe class ScriptHost
 {
-    private static PhoenixScript? s_script;
+    private static MetaBehaviour? s_script;
 
     /// <summary>Attaches to the engine and starts <typeparamref name="T"/>. Returns 0 on success.</summary>
     public static int Init<T>(PhxEngineApi* api)
-        where T : PhoenixScript, new()
+        where T : MetaBehaviour, new()
     {
         if (!IsCompatible(api))
         {
@@ -44,7 +69,7 @@ public static unsafe class ScriptHost
     }
 
     /// <summary>Attaches with an existing script instance (tests, custom hosting).</summary>
-    public static int Init(PhxEngineApi* api, PhoenixScript script)
+    public static int Init(PhxEngineApi* api, MetaBehaviour script)
     {
         ArgumentNullException.ThrowIfNull(script);
         if (!IsCompatible(api))
@@ -63,12 +88,13 @@ public static unsafe class ScriptHost
         Engine.Attach(api);
         try
         {
-            s_script!.OnStart();
+            s_script!.Awake();
+            s_script.Start();
             return 0;
         }
         catch (Exception e)
         {
-            Engine.Log("Phoenix C#: OnStart threw " + e.GetType().Name + ": " + e.Message, ScriptAbi.LogError);
+            Engine.Log("Phoenix C#: Awake/Start threw " + e.GetType().Name + ": " + e.Message, ScriptAbi.LogError);
             return -3;
         }
     }
@@ -78,11 +104,15 @@ public static unsafe class ScriptHost
     {
         try
         {
-            s_script?.OnUpdate(in *frame);
+            Time.frame = *frame;
+            Time.deltaTime = frame->DeltaSeconds;
+            Time.time = frame->TimeSeconds;
+            Time.frameCount = frame->FrameIndex;
+            s_script?.Update();
         }
         catch (Exception e)
         {
-            Engine.Log("Phoenix C#: OnUpdate threw " + e.GetType().Name + ": " + e.Message, ScriptAbi.LogError);
+            Engine.Log("Phoenix C#: Update threw " + e.GetType().Name + ": " + e.Message, ScriptAbi.LogError);
         }
     }
 
@@ -91,7 +121,7 @@ public static unsafe class ScriptHost
     {
         try
         {
-            s_script?.OnShutdown();
+            s_script?.OnDestroy();
         }
         finally
         {

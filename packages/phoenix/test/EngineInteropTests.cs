@@ -69,13 +69,17 @@ public sealed unsafe class EngineInteropTests : IDisposable
     [UnmanagedCallersOnly]
     private static PhxDrawRect* FakeDrawRects(void* engine, uint count) => count <= 16 ? s_rects : null;
 
-    private sealed class SpawnOnStart : PhoenixScript
+    private sealed class SpawnOnStart : MetaBehaviour
     {
         public int Updates { get; private set; }
 
-        public override void OnStart() => Engine.SpawnBox(1, 2, 0.5f, 0.5f, rgba: 0x11223344);
+        public bool Awoken { get; private set; }
 
-        public override void OnUpdate(in PhxFrameInfo frame) => Updates++;
+        protected internal override void Awake() => Awoken = true;
+
+        protected internal override void Start() => Engine.SpawnBox(1, 2, 0.5f, 0.5f, rgba: 0x11223344);
+
+        protected internal override void Update() => Updates++;
     }
 
     [Fact]
@@ -101,9 +105,12 @@ public sealed unsafe class EngineInteropTests : IDisposable
         Assert.Equal(42, s_rects[1].Width);
         Assert.True(Engine.DrawRects(1000).IsEmpty);
 
-        var frame = new PhxFrameInfo { FrameIndex = 7 };
+        Assert.True(script.Awoken);
+        var frame = new PhxFrameInfo { FrameIndex = 7, DeltaSeconds = 0.25f, TimeSeconds = 3 };
         ScriptHost.Update(&frame);
         Assert.Equal(1, script.Updates);
+        Assert.Equal(0.25f, Time.deltaTime);
+        Assert.Equal(7, Time.frameCount);
     }
 
     [Fact]
@@ -123,9 +130,9 @@ public sealed unsafe class EngineInteropTests : IDisposable
         Assert.Equal(-1, ScriptHost.Init<SpawnOnStart>(null));
     }
 
-    private sealed class Throwing : PhoenixScript
+    private sealed class Throwing : MetaBehaviour
     {
-        public override void OnUpdate(in PhxFrameInfo frame) => throw new InvalidOperationException("boom");
+        protected internal override void Update() => throw new InvalidOperationException("boom");
     }
 
     [Fact]

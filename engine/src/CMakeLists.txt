@@ -42,3 +42,32 @@ phoenix_engine_library(engine
 
 # Entry point compiled into every app executable (see cmake/PhoenixApp.cmake).
 set(PHOENIX_APP_MAIN_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/shell/app_main.cpp" CACHE INTERNAL "")
+
+# --- ECS + Unity-style scene layer, built on the foundation (phoenix_core) ------------------
+if(PHOENIX_WITH_FOUNDATION)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(PHOENIX_COMPONENTS_GEN "${CMAKE_CURRENT_BINARY_DIR}/generated")
+    add_custom_command(
+        OUTPUT "${PHOENIX_COMPONENTS_GEN}/phoenix/scene/components.gen.h"
+               "${PHOENIX_COMPONENTS_GEN}/phoenix/scene/components.gen.cpp"
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../components/gen_components.py"
+                --out "${PHOENIX_COMPONENTS_GEN}"
+        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../components/catalogue.py"
+                "${CMAKE_CURRENT_SOURCE_DIR}/../components/gen_components.py"
+        COMMENT "Generating built-in components from components/catalogue.py"
+        VERBATIM)
+
+    phoenix_engine_library(ecs
+        SOURCES ecs/component.cpp ecs/world.cpp ecs/scheduler.cpp
+        DEPS phoenix::foundation)
+    if(NOT MSVC)
+        # PHX_FIELD uses offsetof on components holding foundation String/Vector members
+        # (not "standard layout"); every supported compiler handles non-virtual types.
+        target_compile_options(phoenix_ecs PUBLIC -Wno-invalid-offsetof)
+    endif()
+
+    phoenix_engine_library(scene
+        SOURCES scene/scene.cpp "${PHOENIX_COMPONENTS_GEN}/phoenix/scene/components.gen.cpp"
+        DEPS phoenix::ecs)
+    target_include_directories(phoenix_scene PUBLIC "${PHOENIX_COMPONENTS_GEN}")
+endif()

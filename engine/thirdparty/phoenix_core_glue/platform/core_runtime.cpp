@@ -22,6 +22,8 @@
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>
 
+void phoenix_foundation_install_ip();  // ip_phoenix.cpp
+
 namespace phoenix::foundation {
 
 namespace {
@@ -70,6 +72,7 @@ bool CoreRuntime::initialize(const CoreOptions &p_options) {
 	CoreGlobals::print_ready = true;
 
 	s.engine = memnew(Engine);
+	phoenix_foundation_install_ip();
 	register_core_types();
 	// Phoenix compat seam classes (Godot registers these from scene/).
 	GDREGISTER_CLASS(Node);

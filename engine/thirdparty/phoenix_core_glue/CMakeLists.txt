@@ -86,7 +86,8 @@ add_library(phoenix::foundation ALIAS phoenix_foundation)
 # Godot's own language level and conventions (see Godot's SConstruct).
 set_target_properties(phoenix_foundation PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON
                       CXX_EXTENSIONS ON C_STANDARD 17 POSITION_INDEPENDENT_CODE ON)
-target_include_directories(phoenix_foundation
+# SYSTEM: consumers (Phoenix's own -Werror targets) must not inherit upstream header warnings.
+target_include_directories(phoenix_foundation SYSTEM
     PUBLIC "${FOUNDATION_DIR}" "${FOUNDATION_GEN}" "${CMAKE_CURRENT_SOURCE_DIR}/compat"
            "${CMAKE_CURRENT_SOURCE_DIR}/platform"
            # Generated headers that Godot includes by bare name from their source directory:
