@@ -262,8 +262,14 @@ String OS_Phoenix::get_resource_dir() const {
 String OS_Phoenix::get_data_path() const {
 #ifdef __EMSCRIPTEN__
 	// Fixed, absolute root in the virtual file system (Godot's web platform uses "/userfs"
-	// too). Persistence is the storage service's job (OPFS under /persistent).
-	return "/userfs";
+	// too). Persistence is the storage service's job (OPFS under /persistent). Under Node with
+	// NODERAWFS (tests) "/" is the host's root, which may not be writable: use the temp dir.
+	// access() is not reliable here (Emscripten reports uid 0), so probe with a real write.
+	if (SDL_CreateDirectory("/userfs/.probe")) {
+		SDL_RemovePath("/userfs/.probe");
+		return "/userfs";
+	}
+	return get_cache_path().path_join("phoenix-userdata");
 #else
 	// SDL's per-user data root (XDG_DATA_HOME on Linux, %APPDATA% on Windows,
 	// ~/Library/Application Support on macOS): SDL_GetPrefPath returns <root>/<org>/<app>/.
