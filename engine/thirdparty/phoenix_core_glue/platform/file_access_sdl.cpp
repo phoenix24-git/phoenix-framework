@@ -8,6 +8,11 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
 
+#ifdef _WIN32
+#include <share.h>
+#include <stdio.h>
+#endif
+
 namespace {
 
 bool path_info(const String &p_path, SDL_PathInfo *r_info) {
@@ -21,6 +26,77 @@ uint64_t to_unix_seconds(SDL_Time p_time) {
 } // namespace
 
 // --- FileAccessSDL ----------------------------------------------------------------------------
+
+#ifdef _WIN32
+namespace {
+// SDL opens files for writing with exclusive sharing on Windows, so a file being written can't
+// be read at the same time (log files, editors watching assets). Godot's Windows driver uses
+// _wfsopen(_SH_DENYNO); do the same and adapt the FILE* to an SDL_IOStream.
+Sint64 SDLCALL stdio_size(void *userdata) {
+	FILE *f = static_cast<FILE *>(userdata);
+	const __int64 pos = _ftelli64(f);
+	_fseeki64(f, 0, SEEK_END);
+	const __int64 size = _ftelli64(f);
+	_fseeki64(f, pos, SEEK_SET);
+	return size;
+}
+Sint64 SDLCALL stdio_seek(void *userdata, Sint64 offset, SDL_IOWhence whence) {
+	FILE *f = static_cast<FILE *>(userdata);
+	const int origin = whence == SDL_IO_SEEK_SET ? SEEK_SET : whence == SDL_IO_SEEK_CUR ? SEEK_CUR : SEEK_END;
+	if (_fseeki64(f, offset, origin) != 0) {
+		return -1;
+	}
+	return _ftelli64(f);
+}
+size_t SDLCALL stdio_read(void *userdata, void *ptr, size_t size, SDL_IOStatus *status) {
+	FILE *f = static_cast<FILE *>(userdata);
+	const size_t n = fread(ptr, 1, size, f);
+	if (n < size) {
+		*status = ferror(f) ? SDL_IO_STATUS_ERROR : SDL_IO_STATUS_EOF;
+	}
+	return n;
+}
+size_t SDLCALL stdio_write(void *userdata, const void *ptr, size_t size, SDL_IOStatus *status) {
+	FILE *f = static_cast<FILE *>(userdata);
+	const size_t n = fwrite(ptr, 1, size, f);
+	if (n < size) {
+		*status = SDL_IO_STATUS_ERROR;
+	}
+	return n;
+}
+bool SDLCALL stdio_flush(void *userdata, SDL_IOStatus *status) {
+	if (fflush(static_cast<FILE *>(userdata)) != 0) {
+		*status = SDL_IO_STATUS_ERROR;
+		return false;
+	}
+	return true;
+}
+bool SDLCALL stdio_close(void *userdata) {
+	return fclose(static_cast<FILE *>(userdata)) == 0;
+}
+
+SDL_IOStream *open_shared(const String &p_path, const char *p_mode) {
+	FILE *f = _wfsopen(reinterpret_cast<const wchar_t *>(p_path.utf16().get_data()),
+			reinterpret_cast<const wchar_t *>(String(p_mode).utf16().get_data()), _SH_DENYNO);
+	if (!f) {
+		return nullptr;
+	}
+	SDL_IOStreamInterface iface;
+	SDL_INIT_INTERFACE(&iface);
+	iface.size = stdio_size;
+	iface.seek = stdio_seek;
+	iface.read = stdio_read;
+	iface.write = stdio_write;
+	iface.flush = stdio_flush;
+	iface.close = stdio_close;
+	SDL_IOStream *io = SDL_OpenIO(&iface, f);
+	if (!io) {
+		fclose(f);
+	}
+	return io;
+}
+} // namespace
+#endif
 
 FileAccessSDL::~FileAccessSDL() {
 	_close();
@@ -55,7 +131,11 @@ Error FileAccessSDL::open_internal(const String &p_path, int p_mode_flags) {
 		open_path = path + ".tmp";
 	}
 
+#ifdef _WIN32
+	stream = open_shared(open_path, mode);
+#else
 	stream = SDL_IOFromFile(open_path.utf8().get_data(), mode);
+#endif
 	if (!stream) {
 		save_path = String();
 		last_error = (p_mode_flags & READ) && !path_info(path, &info) ? ERR_FILE_NOT_FOUND : ERR_FILE_CANT_OPEN;
