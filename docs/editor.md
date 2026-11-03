@@ -13,6 +13,8 @@ the input there. Press **F1** again to close the editor and resume the game.
 1. TOC
 {:toc}
 
+![The editor open over Skyline, with Base selected](editor.png)
+
 ## Layout
 
 ```text

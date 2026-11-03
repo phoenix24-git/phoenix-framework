@@ -359,6 +359,26 @@ class TapRegion final : public Widget {
     std::string semantics_;
 };
 
+/// Clips its child to its own bounds (long labels in narrow columns).
+class ClipWidget final : public Widget {
+  public:
+    explicit ClipWidget(WidgetPtr child) : child_(std::move(child)) {}
+    Size layout(const BoxConstraints& c) override {
+        size_ = child_ ? c.constrain(child_->layout(c)) : c.constrain({});
+        return size_;
+    }
+    void paint(PaintContext& ctx, Offset o) override {
+        if (!child_)
+            return;
+        ctx.pushClip({o.x, o.y, size_.width, size_.height});
+        child_->paint(ctx, o);
+        ctx.popClip();
+    }
+
+  private:
+    WidgetPtr child_;
+};
+
 // ---------------------------------------------------------------------------
 // Controls
 // ---------------------------------------------------------------------------
@@ -948,8 +968,10 @@ WidgetPtr PropertyRow(PropertyRowProps props) {
         .child = Row({
             .children =
                 {
-                    SizedBox({.width = props.labelWidth,
-                              .child = Label(props.label, ToolTheme::textDim)}),
+                    SizedBox({.width = props.labelWidth - 6,
+                              .child = std::make_shared<ClipWidget>(
+                                  Label(props.label, ToolTheme::textDim))}),
+                    SizedBox({.width = 6}),
                     Expanded({.child = std::move(props.editor)}),
                 },
         }),
