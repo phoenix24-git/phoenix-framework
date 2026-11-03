@@ -260,6 +260,11 @@ String OS_Phoenix::get_resource_dir() const {
 }
 
 String OS_Phoenix::get_data_path() const {
+#ifdef __EMSCRIPTEN__
+	// Fixed, absolute root in the virtual file system (Godot's web platform uses "/userfs"
+	// too). Persistence is the storage service's job (OPFS under /persistent).
+	return "/userfs";
+#else
 	// SDL's per-user data root (XDG_DATA_HOME on Linux, %APPDATA% on Windows,
 	// ~/Library/Application Support on macOS): SDL_GetPrefPath returns <root>/<org>/<app>/.
 	char *pref = SDL_GetPrefPath("phoenix", "_probe");
@@ -271,7 +276,13 @@ String OS_Phoenix::get_data_path() const {
 	if (root.ends_with("/")) {
 		root = root.substr(0, root.length() - 1);
 	}
-	return root.get_base_dir().get_base_dir();
+	root = root.get_base_dir().get_base_dir();
+	if (!root.is_absolute_path()) {
+		// SDL could not resolve a per-user root (no HOME, sandbox): fall back to a temp dir.
+		root = get_cache_path().path_join("phoenix-userdata");
+	}
+	return root;
+#endif
 }
 
 String OS_Phoenix::get_config_path() const {
