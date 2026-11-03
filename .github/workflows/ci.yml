@@ -52,7 +52,8 @@ jobs:
       - name: clang-format
         run: |
           sudo apt-get install -y -qq clang-format-18
-          git ls-files 'engine/*.cpp' 'engine/*.h' 'templates/*.cpp' | grep -v font5x7 \
+          # engine/thirdparty is vendored Godot code (and glue in Godot's style): not ours to reformat.
+          git ls-files 'engine/*.cpp' 'engine/*.h' 'templates/*.cpp' | grep -v font5x7 | grep -v '^engine/thirdparty/' \
             | xargs clang-format-18 --dry-run --Werror
       - name: dotnet format
         run: dotnet format phoenix.slnx --verify-no-changes --verbosity minimal

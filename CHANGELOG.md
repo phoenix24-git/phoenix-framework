@@ -8,6 +8,16 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Godot core foundation**:
+  - Godot 4.7.2 `core/` is vendored verbatim in `engine/thirdparty/phoenix_core`, built as
+    `phoenix::foundation` with CMake, natively and on wasm64.
+  - It runs on a new SDL3 platform layer (`OS_Phoenix`, `FileAccessSDL`, `DirAccessSDL`) through
+    `phoenix::foundation::CoreRuntime`.
+  - Godot's own core test suite passes on both targets: 831 cases, 197,500 assertions.
+- Godot editor icons (1,021 SVGs) and editor fonts in `engine/assets/editor`, plus
+  `THIRD_PARTY_NOTICES.md`.
+- `dev/tools/vendor_foundation.py` for reproducible Godot updates.
+
 
 - `phoenix build web -o/--output <dir>`: publishes the finished bundle to a folder. It only replaces a
   folder that is empty or holds a previous Phoenix bundle.

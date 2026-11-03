@@ -1,0 +1,7 @@
+# ThreadSanitizer suppressions for Godot's upstream unit tests (thirdparty/godot/tests).
+# Keep this list minimal and specific: every entry must name upstream test code, never engine code.
+#
+# tests/core/templates/test_command_queue.cpp: the ThreadWork test helper takes its two recursive
+# mutexes in different orders on the main and worker threads. The test's own handshake keeps this
+# from deadlocking, but TSan reports the potential lock-order inversion.
+deadlock:TestCommandQueue::ThreadWork
