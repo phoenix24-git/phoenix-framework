@@ -40,9 +40,8 @@ TEST_SUITE("Input") {
         Offset total{};
         int taps = 0, ends = 0;
         tester.pumpWidget(live([&] {
-            return Center({.child = std::make_shared<Live>([&] {
-                               return SizedBox({.width = 100, .height = 100});
-                           })});
+            return Center({.child = std::make_shared<Live>(
+                               [&] { return SizedBox({.width = 100, .height = 100}); })});
         }));
         // Register a region by hand through a tiny custom widget.
         struct Region : Widget {
@@ -79,12 +78,16 @@ TEST_SUITE("Input") {
     TEST_CASE("the overlay root is on top, and input falls through where it has no regions") {
         WidgetTester tester;
         int game = 0, editor = 0;
-        tester.pumpWidget(GestureDetector({.onTap = [&] { ++game; },
-                                           .child = Container({.color = Colors::black})}));
-        WidgetsBinding::instance().setOverlayRoot(Stack({.children = {Positioned({
-            .left = 0, .top = 0, .width = 100, .height = 600,
-            .child = ToolButton({.label = "Tool", .onPressed = [&] { ++editor; }}),
-        })}}));
+        tester.pumpWidget(GestureDetector(
+            {.onTap = [&] { ++game; }, .child = Container({.color = Colors::black})}));
+        WidgetsBinding::instance().setOverlayRoot(
+            Stack({.children = {Positioned({
+                       .left = 0,
+                       .top = 0,
+                       .width = 100,
+                       .height = 600,
+                       .child = ToolButton({.label = "Tool", .onPressed = [&] { ++editor; }}),
+                   })}}));
         tester.pump();
         REQUIRE(tester.tap("Tool"));
         CHECK(editor == 1);
@@ -128,12 +131,11 @@ TEST_SUITE("Tool widgets") {
         auto controller = std::make_shared<TextEditingController>();
         std::string submitted;
         tester.pumpWidget(live([&] {
-            return Center({.child = TextField({.controller = controller,
-                                               .hint = "Name",
-                                               .onSubmitted = [&](const std::string& s) {
-                                                   submitted = s;
-                                               },
-                                               .width = 200})});
+            return Center(
+                {.child = TextField({.controller = controller,
+                                     .hint = "Name",
+                                     .onSubmitted = [&](const std::string& s) { submitted = s; },
+                                     .width = 200})});
         }));
         REQUIRE(tester.tap("Name"));
         CHECK(controller->focus.hasFocus());
@@ -156,12 +158,11 @@ TEST_SUITE("Tool widgets") {
         auto controller = std::make_shared<TextEditingController>();
         int submits = 0;
         tester.pumpWidget(live([&] {
-            return Column({.children = {TextField({.controller = controller,
-                                                   .hint = "Tag",
-                                                   .onSubmitted = [&](const std::string&) {
-                                                       ++submits;
-                                                   },
-                                                   .width = 200})}});
+            return Column(
+                {.children = {TextField({.controller = controller,
+                                         .hint = "Tag",
+                                         .onSubmitted = [&](const std::string&) { ++submits; },
+                                         .width = 200})}});
         }));
         tester.tap("Tag");
         tester.enterText("x");
@@ -205,9 +206,9 @@ TEST_SUITE("Tool widgets") {
         WidgetTester tester;
         bool on = false;
         tester.pumpWidget(live([&] {
-            return Center({.child = Checkbox({.value = on,
-                                              .onChanged = [&](bool v) { on = v; },
-                                              .label = "Active"})});
+            return Center(
+                {.child = Checkbox(
+                     {.value = on, .onChanged = [&](bool v) { on = v; }, .label = "Active"})});
         }));
         tester.tap("Active");
         CHECK(on);
@@ -221,7 +222,8 @@ TEST_SUITE("Tool widgets") {
         tester.pumpWidget(live([&] {
             std::vector<WidgetPtr> rows;
             for (int i = 0; i < 50; ++i)
-                rows.push_back(Container({.height = 20, .child = Label("row " + std::to_string(i))}));
+                rows.push_back(
+                    Container({.height = 20, .child = Label("row " + std::to_string(i))}));
             return ScrollView({.controller = scroll,
                                .child = Column({.crossAxisAlignment = CrossAxisAlignment::stretch,
                                                 .children = rows})});
@@ -260,12 +262,16 @@ TEST_SUITE("Tool widgets") {
         auto state = std::make_shared<TreeState>();
         std::uint64_t picked = 0;
         tester.pumpWidget(live([&] {
-            return TreeView({.roots = {TreeItem{.id = 1, .label = "World", .children = {
-                                 TreeItem{.id = 2, .label = "Camera"},
-                                 TreeItem{.id = 3, .label = "Player", .children = {
-                                     TreeItem{.id = 4, .label = "Sword"}}}}}},
-                             .state = state,
-                             .onSelected = [&](std::uint64_t id) { picked = id; }});
+            return TreeView(
+                {.roots = {TreeItem{
+                     .id = 1,
+                     .label = "World",
+                     .children = {TreeItem{.id = 2, .label = "Camera"},
+                                  TreeItem{.id = 3,
+                                           .label = "Player",
+                                           .children = {TreeItem{.id = 4, .label = "Sword"}}}}}},
+                 .state = state,
+                 .onSelected = [&](std::uint64_t id) { picked = id; }});
         }));
         CHECK(tester.findText("Sword") == 1);
         tester.tap("Player");
@@ -285,12 +291,13 @@ TEST_SUITE("Tool widgets") {
         int picked = 0;
         auto popup = std::make_shared<PopupState>();
         tester.pumpWidget(live([&] {
-            return Column({.children = {SizedBox({.width = 200, .child = Dropdown({
-                .items = {"Perspective", "Orthographic"},
-                .selected = picked,
-                .onChanged = [&](int i) { picked = i; },
-                .state = popup,
-            })})}});
+            return Column({.children = {SizedBox({.width = 200,
+                                                  .child = Dropdown({
+                                                      .items = {"Perspective", "Orthographic"},
+                                                      .selected = picked,
+                                                      .onChanged = [&](int i) { picked = i; },
+                                                      .state = popup,
+                                                  })})}});
         }));
         CHECK(tester.findText("Orthographic") == 0);
         tester.tap("Perspective");
@@ -306,12 +313,16 @@ TEST_SUITE("Tool widgets") {
         int added = 0;
         auto state = std::make_shared<PopupState>();
         tester.pumpWidget(live([&] {
-            return Column({.crossAxisAlignment = CrossAxisAlignment::stretch, .children = {
-                MenuBar({.menus = {Menu{.title = "Scene", .items = {
-                             MenuItem{.label = "Add Empty", .onSelected = [&] { ++added; }},
-                             MenuItem{.label = "Disabled", .enabled = false}}}},
-                         .state = state}),
-            }});
+            return Column(
+                {.crossAxisAlignment = CrossAxisAlignment::stretch,
+                 .children = {
+                     MenuBar({.menus = {Menu{
+                                  .title = "Scene",
+                                  .items = {MenuItem{.label = "Add Empty",
+                                                     .onSelected = [&] { ++added; }},
+                                            MenuItem{.label = "Disabled", .enabled = false}}}},
+                              .state = state}),
+                 }});
         }));
         tester.tap("Scene");
         tester.pump();

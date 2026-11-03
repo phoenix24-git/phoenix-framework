@@ -17,6 +17,7 @@ Phoenix is an app and game framework with **Flutter's developer workflow** (`cre
   - scene files in Godot `.tscn` syntax, holding Unity-style GameObjects
   - C# `MetaBehaviour` scripts attached to those objects
   - see [Scenes and scripts](docs/scenes.md) and the [Skyline](examples/skyline) example
+- A Godot-style **in-game editor**: press **F1** in a running game for the scene tree, an inspector that edits every reflected component field live, Play/Pause/Step, Output and FileSystem docks. See [In-game editor](docs/editor.md).
 - A Godot-style **virtual file system**:
   - paths: `res://` for resources and `user://` for saves, backed by OPFS on the web
   - `.pck`/`.zip` packs for exported games, DLC and mods

@@ -126,8 +126,8 @@ struct KeyEvent {
 struct FrameInput {
     Offset pointer{-1, -1};
     bool pointerDown = false;
-    bool pressed = false;   ///< the primary button went down this frame
-    bool released = false;  ///< the primary button went up this frame
+    bool pressed = false;            ///< the primary button went down this frame
+    bool released = false;           ///< the primary button went up this frame
     float scrollX = 0, scrollY = 0;  ///< wheel delta this frame (lines; +y = towards the user)
     std::vector<KeyEvent> keys;      ///< key presses this frame, in order
     std::string text;                ///< UTF-8 text typed this frame

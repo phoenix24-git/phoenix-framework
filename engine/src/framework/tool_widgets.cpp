@@ -86,8 +86,8 @@ void paint_editable(PaintContext& ctx, Rect r, const std::shared_ptr<TextEditing
     ctx.addInteraction(r, {.onPress =
                                [c, x0 = inner.x - c->scroll, cw](Offset p) {
                                    const long idx = std::lround((p.x - x0) / cw);
-                                   c->caret = static_cast<std::size_t>(std::clamp(
-                                       idx, 0L, static_cast<long>(c->text.size())));
+                                   c->caret = static_cast<std::size_t>(
+                                       std::clamp(idx, 0L, static_cast<long>(c->text.size())));
                                },
                            .focus = &c->focus});
     if (!focused)
@@ -163,8 +163,8 @@ class PositionedWidget final : public Widget {
 
     /// Laid out by the Stack, which knows its own size.
     void layoutIn(Size stack) {
-        auto axis = [](float start, float end, float extent, float total, float& pos,
-                       float& min_s, float& max_s) {
+        auto axis = [](float start, float end, float extent, float total, float& pos, float& min_s,
+                       float& max_s) {
             if (extent >= 0) {
                 min_s = max_s = extent;
             } else if (start >= 0 && end >= 0) {
@@ -212,8 +212,8 @@ class StackWidget final : public Widget {
                 biggest = {std::max(biggest.width, s.width), std::max(biggest.height, s.height)};
             }
         }
-        size_ = c.constrain({finite_or(c.maxWidth, biggest.width),
-                             finite_or(c.maxHeight, biggest.height)});
+        size_ = c.constrain(
+            {finite_or(c.maxWidth, biggest.width), finite_or(c.maxHeight, biggest.height)});
         for (auto& child : p_.children) {
             if (auto* positioned = dynamic_cast<PositionedWidget*>(child.get()))
                 positioned->layoutIn(size_);
@@ -291,8 +291,8 @@ class SplitViewWidget final : public Widget {
         const float total = p_.vertical ? size_.height : size_.width;
         const float cross = p_.vertical ? size_.width : size_.height;
         const float max_fixed = std::max(0.0f, total - kDivider - controller_->minSize);
-        const float fixed = std::clamp(controller_->size, std::min(controller_->minSize, max_fixed),
-                                       max_fixed);
+        const float fixed =
+            std::clamp(controller_->size, std::min(controller_->minSize, max_fixed), max_fixed);
         first_ = controller_->fromEnd ? std::max(0.0f, total - kDivider - fixed) : fixed;
         const float second = std::max(0.0f, total - kDivider - first_);
         auto tight = [&](float main) {
@@ -319,10 +319,10 @@ class SplitViewWidget final : public Widget {
         auto c = controller_;
         const bool vertical = p_.vertical;
         ctx.addInteraction(divider, {.onDrag = [c, vertical](Offset, Offset d) {
-                                         const float delta = vertical ? d.y : d.x;
-                                         c->size += c->fromEnd ? -delta : delta;
-                                         c->size = std::max(c->size, c->minSize);
-                                     }});
+                               const float delta = vertical ? d.y : d.x;
+                               c->size += c->fromEnd ? -delta : delta;
+                               c->size = std::max(c->size, c->minSize);
+                           }});
     }
 
   private:
@@ -383,8 +383,9 @@ class ToolButtonWidget final : public Widget {
         ctx.drawRect(r, bg);
         const Size t = measureText(p_.label, p_.fontSize);
         const Color fg = p_.onPressed ? p_.color : ToolTheme::textDim;
-        drawText(ctx, {std::floor(o.x + (size_.width - t.width) * 0.5f),
-                       text_y(o.y, size_.height, p_.fontSize)},
+        drawText(ctx,
+                 {std::floor(o.x + (size_.width - t.width) * 0.5f),
+                  text_y(o.y, size_.height, p_.fontSize)},
                  p_.label, {.fontSize = p_.fontSize, .color = fg});
         if (p_.onPressed)
             ctx.addHitTarget(r, [cb = p_.onPressed](Offset) { cb(); });
@@ -433,8 +434,7 @@ class TextFieldWidget final : public Widget {
   public:
     explicit TextFieldWidget(TextFieldProps p)
         : p_(std::move(p)),
-          controller_(p_.controller ? p_.controller : std::make_shared<TextEditingController>()) {
-    }
+          controller_(p_.controller ? p_.controller : std::make_shared<TextEditingController>()) {}
 
     Size layout(const BoxConstraints& c) override {
         const float w = p_.width >= 0 ? p_.width : finite_or(c.maxWidth, 160);
@@ -576,8 +576,8 @@ class DropdownWidget final : public Widget {
                     overlay.drawRect(item, ToolTheme::hover);
                 else if (index == selected)
                     overlay.drawRect(item, ToolTheme::selection);
-                drawText(overlay, {item.x + 8, text_y(item.y, row, ToolTheme::fontSize)},
-                         items[i], {.color = ToolTheme::text});
+                drawText(overlay, {item.x + 8, text_y(item.y, row, ToolTheme::fontSize)}, items[i],
+                         {.color = ToolTheme::text});
                 overlay.addSemantics(items[i], item);
                 overlay.addHitTarget(item, [state, cb, index](Offset) {
                     state->open = -1;
@@ -625,12 +625,11 @@ class MenuBarWidget final : public Widget {
             const bool open = state->open == index;
             if (open || ctx.hovered(title))
                 ctx.drawRect(title, open ? ToolTheme::selection : ToolTheme::hover);
-            drawText(ctx, {x + 10, text_y(title.y, title.height, ToolTheme::fontSize)},
-                     menu.title, {.color = ToolTheme::text});
+            drawText(ctx, {x + 10, text_y(title.y, title.height, ToolTheme::fontSize)}, menu.title,
+                     {.color = ToolTheme::text});
             ctx.addSemantics(menu.title, title);
-            ctx.addHitTarget(title, [state, index](Offset) {
-                state->open = state->open == index ? -1 : index;
-            });
+            ctx.addHitTarget(
+                title, [state, index](Offset) { state->open = state->open == index ? -1 : index; });
             if (open) {
                 ctx.addOverlay([state, menu, title, bar_bottom = o.y + kHeight](PaintContext& ov) {
                     paintMenu(ov, state, menu, {title.x, bar_bottom});
@@ -686,10 +685,10 @@ class MenuBarWidget final : public Widget {
             }
             ov.addSemantics(item.label, r);
             ov.addInteraction(r, {.onTap = [state, cb = item.onSelected, enabled](Offset) {
-                                      state->open = -1;
-                                      if (enabled)
-                                          cb();
-                                  }});
+                                  state->open = -1;
+                                  if (enabled)
+                                      cb();
+                              }});
         }
     }
 
@@ -713,8 +712,8 @@ class TreeViewWidget final : public Widget {
                                               measureText(row.item->label, 14).width);
             }
         }
-        size_ = c.constrain({finite_or(c.maxWidth, widest),
-                             p_.rowHeight * static_cast<float>(rows_.size())});
+        size_ = c.constrain(
+            {finite_or(c.maxWidth, widest), p_.rowHeight * static_cast<float>(rows_.size())});
         return size_;
     }
 
@@ -736,10 +735,10 @@ class TreeViewWidget final : public Widget {
             const float indent = 4 + 16 * static_cast<float>(row.depth);
             const float ty = text_y(r.y, r.height, 14);
             ctx.addInteraction(r, {.onTap = [state, id = item.id, cb = p_.onSelected](Offset) {
-                                       state->selected = id;
-                                       if (cb)
-                                           cb(id);
-                                   }});
+                                   state->selected = id;
+                                   if (cb)
+                                       cb(id);
+                               }});
             if (!item.children.empty()) {
                 const bool collapsed = state->collapsed.count(item.id) != 0;
                 drawText(ctx, {r.x + indent, ty}, collapsed ? ">" : "v",
@@ -785,8 +784,8 @@ class TabViewWidget final : public Widget {
         size_ = c.constrain({finite_or(c.maxWidth, 400), finite_or(c.maxHeight, 300)});
         *index_ = std::clamp(*index_, 0, std::max(0, static_cast<int>(p_.tabs.size()) - 1));
         if (WidgetPtr body = current())
-            body->layout(BoxConstraints::tight(
-                {size_.width, std::max(0.0f, size_.height - kHeader)}));
+            body->layout(
+                BoxConstraints::tight({size_.width, std::max(0.0f, size_.height - kHeader)}));
         return size_;
     }
 
@@ -930,19 +929,17 @@ WidgetPtr Section(SectionProps props) {
     if (props.onToggle)
         toggle.onTap = [cb = props.onToggle](Offset) { cb(); };
     std::vector<WidgetPtr> children{std::make_shared<TapRegion>(
-        std::move(toggle),
-        Container({
-            .height = ToolTheme::rowHeight + 2,
-            .color = ToolTheme::header,
-            .padding = EdgeInsets{8, 0, 4, 0},
-            .child = Row({.spacing = 8, .children = std::move(header)}),
-        }),
-        props.title)};
+        std::move(toggle), Container({
+                               .height = ToolTheme::rowHeight + 2,
+                               .color = ToolTheme::header,
+                               .padding = EdgeInsets{8, 0, 4, 0},
+                               .child = Row({.spacing = 8, .children = std::move(header)}),
+                           }))};
     if (props.expanded && props.child) {
         children.push_back(Padding({.padding = EdgeInsets{10, 4, 6, 6}, .child = props.child}));
     }
-    return Column({.crossAxisAlignment = CrossAxisAlignment::stretch,
-                   .children = std::move(children)});
+    return Column(
+        {.crossAxisAlignment = CrossAxisAlignment::stretch, .children = std::move(children)});
 }
 
 WidgetPtr PropertyRow(PropertyRowProps props) {

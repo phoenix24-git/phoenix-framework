@@ -78,6 +78,10 @@ phoenix::EngineConfig make_config(int argc, char** argv) {
             c.profile.vram_budget_bytes = std::strtoull(v, nullptr, 10) * phoenix::kMiB;
         else if (parse_flag(argv[i], "--workers", &v))
             c.profile.worker_threads = static_cast<unsigned>(std::strtoul(v, nullptr, 10));
+        else if (std::strcmp(argv[i], "--editor") == 0)
+            c.open_editor = true;
+        else if (std::strcmp(argv[i], "--no-editor") == 0)
+            c.editor = false;
     }
     if (c.script_module.empty()) {
         if (const char* env = SDL_getenv("PHOENIX_SCRIPT_MODULE"))
