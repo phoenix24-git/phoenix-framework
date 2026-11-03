@@ -1,0 +1,19 @@
+{
+  "name": "hello_phoenix",
+  "description": "The Phoenix starter app: Flutter-style counter + Jolt physics on wasm64.",
+  "version": "1.0.0+1",
+  "environment": {
+    "phoenix": ">=0.1.0 <1.0.0"
+  },
+  "title": "Phoenix Demo Home Page",
+  "console": {
+    "vramMB": 3584,
+    "vramPreallocate": true,
+    "workerThreads": 6,
+    "cpuArenaMB": 256
+  },
+  "web": {
+    "initialMemoryMB": 1024,
+    "maximumMemoryMB": 16384
+  }
+}

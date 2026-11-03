@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The `phoenix` command line tool (the analogue of flutter_tools). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>Phoenix.Tools</AssemblyName>
+    <RootNamespace>Phoenix.Tools</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Phoenix.Tools.Tests" />
+  </ItemGroup>
+</Project>

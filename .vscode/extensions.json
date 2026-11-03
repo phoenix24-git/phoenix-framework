@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "ms-vscode.cmake-tools",
+    "llvm-vs-code-extensions.vscode-clangd",
+    "ms-dotnettools.csdevkit",
+    "ms-playwright.playwright",
+    "editorconfig.editorconfig"
+  ]
+}

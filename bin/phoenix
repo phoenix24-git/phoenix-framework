@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Copyright 2026 The Phoenix Authors. SPDX-License-Identifier: Apache-2.0
+#
+# Phoenix command line launcher (the analogue of flutter/bin/flutter).
+# Builds packages/phoenix_tools into bin/cache when its sources change, then
+# runs it with PHOENIX_ROOT pointing at this SDK checkout.
+set -euo pipefail
+
+resolve() {
+  local path="$1"
+  while [[ -L "$path" ]]; do
+    local dir; dir="$(cd -P "$(dirname "$path")" && pwd)"
+    path="$(readlink "$path")"
+    [[ "$path" != /* ]] && path="$dir/$path"
+  done
+  echo "$path"
+}
+
+BIN_DIR="$(cd -P "$(dirname "$(resolve "${BASH_SOURCE[0]}")")" && pwd)"
+export PHOENIX_ROOT="$(cd "$BIN_DIR/.." && pwd)"
+TOOL_SRC="$PHOENIX_ROOT/packages/phoenix_tools/src"
+TOOL_OUT="$PHOENIX_ROOT/bin/cache/phoenix_tools"
+STAMP="$TOOL_OUT/.stamp"
+
+if ! command -v dotnet >/dev/null 2>&1; then
+  echo "Error: the .NET SDK (10.0+) is required to run the phoenix tool. See https://dot.net." >&2
+  exit 1
+fi
+
+needs_build=0
+if [[ ! -f "$STAMP" || ! -f "$TOOL_OUT/Phoenix.Tools.dll" ]]; then
+  needs_build=1
+elif [[ -n "$(find "$TOOL_SRC" "$PHOENIX_ROOT/Directory.Build.props" "$PHOENIX_ROOT/Directory.Packages.props" \
+        -newer "$STAMP" -not -path '*/obj/*' -not -path '*/bin/*' -print -quit 2>/dev/null)" ]]; then
+  needs_build=1
+fi
+
+if [[ $needs_build -eq 1 ]]; then
+  echo "Building phoenix tool..." >&2
+  mkdir -p "$TOOL_OUT"
+  if ! dotnet publish "$TOOL_SRC/Phoenix.Tools.csproj" -c Release -o "$TOOL_OUT" --nologo -v quiet \
+        -p:UseAppHost=false >"$TOOL_OUT/build.log" 2>&1; then
+    cat "$TOOL_OUT/build.log" >&2
+    echo "Error: failed to build the phoenix tool." >&2
+    exit 1
+  fi
+  touch "$STAMP"
+fi
+
+exec dotnet "$TOOL_OUT/Phoenix.Tools.dll" "$@"

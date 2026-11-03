@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/packages/" />
+  <Folder Name="/packages/phoenix/">
+    <Project Path="packages/phoenix/src/Phoenix.Framework.csproj" />
+    <Project Path="packages/phoenix/test/Phoenix.Framework.Tests.csproj" />
+  </Folder>
+  <Folder Name="/packages/phoenix_tools/">
+    <Project Path="packages/phoenix_tools/src/Phoenix.Tools.csproj" />
+    <Project Path="packages/phoenix_tools/test/Phoenix.Tools.Tests.csproj" />
+  </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/csharp_script/CSharpScript.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,5 @@
+# Default reviewers. Narrow these as the team grows (e.g. /engine/ to engine owners).
+*                     @phoenix24-git
+/engine/              @phoenix24-git
+/packages/            @phoenix24-git
+/.github/             @phoenix24-git

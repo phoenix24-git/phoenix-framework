@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Example C# gameplay script, published as a NativeAOT shared library:
+      dotnet publish -c Release -r linux-x64     (-> bin/.../publish/CSharpScript.so)
+    Run any Phoenix desktop app with it:
+      PHOENIX_SCRIPT_MODULE=path/to/CSharpScript.so phoenix run -d linux
+  -->
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishAot>true</PublishAot>
+    <NativeLib>Shared</NativeLib>
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Export phoenix_script_init/update/shutdown defined in Phoenix.Framework. -->
+    <UnmanagedEntryPointsAssembly Include="Phoenix.Framework" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../packages/phoenix/src/Phoenix.Framework.csproj" />
+  </ItemGroup>
+</Project>
