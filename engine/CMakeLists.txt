@@ -16,6 +16,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 option(PHOENIX_BUILD_TESTS "Build engine unit tests" ${PROJECT_IS_TOP_LEVEL})
 option(PHOENIX_WITH_PHYSICS "Build the Jolt physics module" ON)
+option(PHOENIX_WITH_FOUNDATION "Build the vendored Godot core/ foundation layer" ON)
 option(PHOENIX_WARNINGS_AS_ERRORS "Treat engine warnings as errors" OFF)
 set(PHOENIX_SANITIZE "" CACHE STRING "Sanitizers for native builds, e.g. address,undefined or thread")
 set(PHOENIX_APP_DIR "" CACHE PATH "Phoenix app project to build (set by the phoenix CLI)")
@@ -35,10 +36,15 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(PhoenixCompilerOptions)
 include(PhoenixDependencies)
 
+if(PHOENIX_BUILD_TESTS)
+    enable_testing()  # before any add_subdirectory that registers tests
+endif()
+if(PHOENIX_WITH_FOUNDATION)
+    add_subdirectory(thirdparty/phoenix_core_glue)
+endif()
 add_subdirectory(src)
 
 if(PHOENIX_BUILD_TESTS)
-    enable_testing()
     add_subdirectory(test)
 endif()
 

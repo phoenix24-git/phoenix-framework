@@ -9,15 +9,16 @@ namespace CSharpScript;
 /// Drops a coloured box every half second and draws a small HUD bar per body,
 /// written straight into the engine's display list.
 /// </summary>
-public sealed class RainScript : PhoenixScript
+public sealed class RainScript : MetaBehaviour
 {
     private double _nextDrop;
     private uint _spawned;
 
-    public override void OnStart() => Engine.Log("RainScript (C#, NativeAOT) attached");
+    protected override void Start() => Engine.Log("RainScript (C#, NativeAOT) attached");
 
-    public override void OnUpdate(in PhxFrameInfo frame)
+    protected override void Update()
     {
+        var frame = Time.frame;
         if (frame.TimeSeconds >= _nextDrop && _spawned < 64)
         {
             _nextDrop = frame.TimeSeconds + 0.5;

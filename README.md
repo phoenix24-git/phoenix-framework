@@ -12,6 +12,7 @@ Phoenix is an app and game framework with **Flutter's developer workflow** (`cre
 - **Jolt Physics**, running on the engine's own worker pool.
 - Apps written in **C++** with a Flutter-style widget API. Gameplay scripts can also be written in **C#**, compiled with NativeAOT and called with no marshalling.
 - The web target is **wasm64 (Memory64) with pthreads**: Web Workers share one linear memory that can grow past 4 GiB. Persistent storage uses **OPFS**.
+- A **Unity-style scene layer**: `GameObject`, `Transform`, `MetaBehaviour`, and [141 Unity components](docs/components.md). It runs on a data-oriented archetype **ECS** built from foundation types (String, Vector3, Transform3D, Variant) that are vendored from Godot's MIT `core/`. See [Coming from Unity](docs/unity.md).
 - A **virtual console** profile reserves fixed hardware budgets at boot. By default that is **3.5 GiB of VRAM** and **6 worker cores**.
 
 The CLI is written in C# (.NET 10, with .NET 11 planned for 2027) and plays the role of `flutter_tools`. Some ideas are borrowed from O3DE (modular engine libraries), Godot (scripts attached to an engine core) and Bevy (data in plain structs shared across systems).
@@ -48,7 +49,7 @@ phoenix build web --release    # build/web, ready for any static host (-o <dir> 
 
 ```
  ┌────────────────────────── your app (lib/main.cpp, optional C# script) ──────────────────────────┐
- │  Widgets (Scaffold, Column, Text, PhysicsView…)       C# PhoenixScript (NativeAOT .so/.dll)       │
+ │  Widgets (Scaffold, Column, Text, PhysicsView…)       C# MetaBehaviour (NativeAOT .so/.dll)      │
  └───────────────▲───────────────────────────────────────────────────▲──────────────────────────────┘
                  │ C++ API                                            │ Script ABI (C, blittable, versioned)
  ┌───────────────┴──────────── Phoenix engine (C++20, static libs) ──┴──────────────────────────────┐
@@ -75,9 +76,9 @@ See [docs/architecture.md](docs/architecture.md) and the [ADRs](docs/adr/).
 ```csharp
 [assembly: DisableRuntimeMarshalling]                     // 1. no runtime marshalling, enforced by the compiler
 
-public sealed class RainScript : PhoenixScript
+public sealed class RainScript : MetaBehaviour
 {
-    public override void OnUpdate(in PhxFrameInfo frame)
+    protected override void Update()   // Unity lifecycle names; Time.deltaTime etc. available
     {
         ReadOnlySpan<PhxBody2D> bodies = Engine.Bodies;   // 2. a span over engine memory, no copy
         Span<PhxDrawRect> rects = Engine.DrawRects(bodies.Length); // writes go straight into the frame

@@ -8,6 +8,36 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **ECS** (`phoenix::ecs`, on foundation types):
+  - archetype storage in 16 KiB SoA chunks
+  - entity generations
+  - queries with `with`/`without`/`changed`, `each`, `for_each_chunk`, and `par_each` on the
+    WorkerThreadPool
+  - per-column change versions
+  - command buffers
+  - a scheduler that runs non-conflicting systems in parallel waves
+- **Reflection**: every component field converts to and from `Variant`/`Dictionary`.
+- **Unity-style scene layer** (`phoenix::scene`):
+  - `Scene`, `GameObject`, `Transform` (world-space getters are always current)
+  - **`MetaBehaviour`** (Phoenix's `MonoBehaviour`) with the full lifecycle
+  - `Time`
+  - `Instantiate`, `Destroy` and `Find`
+- **141 Unity components** generated from `engine/components/catalogue.py`, with the docs at
+  `docs/components.md`.
+- C# scripts derive from `MetaBehaviour` (`Awake`, `Start`, `Update`, `OnDestroy`) and read frame
+  timing from `Time`.
+
+- **Godot core foundation**:
+  - Godot 4.7.2 `core/` is vendored verbatim in `engine/thirdparty/phoenix_core`, built as
+    `phoenix::foundation` with CMake, natively and on wasm64.
+  - It runs on a new SDL3 platform layer (`OS_Phoenix`, `FileAccessSDL`, `DirAccessSDL`) through
+    `phoenix::foundation::CoreRuntime`.
+  - Godot's own core test suite passes on both targets: 831 cases, 197,500 assertions.
+- Godot editor icons (1,021 SVGs) and editor fonts in `engine/assets/editor`, plus
+  `THIRD_PARTY_NOTICES.md`.
+- `dev/tools/vendor_foundation.py` for reproducible Godot updates.
+
+
 - `phoenix build web -o/--output <dir>`: publishes the finished bundle to a folder. It only replaces a
   folder that is empty or holds a previous Phoenix bundle.
 - Documentation site in `docs/`, served by GitHub Pages from `main /docs` with Jekyll and
