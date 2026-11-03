@@ -70,20 +70,41 @@ fetch_one() {
   dir="$CACHE/$name"
   echo "==> $name  $url @ ${commit:0:12} ($branch)"
 
-  if [[ ! -d "$dir/.git" ]]; then
-    mkdir -p "$CACHE"
-    retry git clone --quiet --filter=blob:none --no-checkout "$url" "$dir"
+  # A checkout is either sparse + blobless (for reading) or full + shallow (for building).
+  # Switching kinds re-creates it, which is refused if it has local changes.
+  if [[ -d "$dir/.git" ]]; then
+    local is_partial
+    is_partial="$(git -C "$dir" config --get remote.origin.promisor || echo false)"
+    if [[ ("$full" == 1 && "$is_partial" == true) || ("$full" == 0 && "$is_partial" != true) ]]; then
+      [[ -z "$(git -C "$dir" status --porcelain 2>/dev/null)" ]] \
+        || die "$name: $dir has local changes; commit or remove them before switching checkout kind"
+      rm -rf "$dir"
+    fi
   fi
 
-  if [[ "$full" == 1 ]]; then
-    git -C "$dir" sparse-checkout disable
-  else
+  if [[ ! -d "$dir/.git" ]]; then
+    mkdir -p "$CACHE"
+    if [[ "$full" == 1 ]]; then
+      # One shallow fetch of the pinned commit is far faster than lazily
+      # downloading every blob of a partial clone.
+      git init --quiet "$dir"
+      git -C "$dir" remote add origin "$url"
+    else
+      retry git clone --quiet --filter=blob:none --no-checkout "$url" "$dir"
+    fi
+  fi
+
+  if [[ "$full" == 0 ]]; then
     git -C "$dir" sparse-checkout set --cone "${SPARSE_PATHS[@]}"
   fi
 
   if ! git -C "$dir" cat-file -e "$commit^{commit}" 2>/dev/null; then
-    retry git -C "$dir" fetch --quiet --filter=blob:none origin "$commit" \
-      || retry git -C "$dir" fetch --quiet --filter=blob:none origin "$branch"
+    if [[ "$full" == 1 ]]; then
+      retry git -C "$dir" fetch --quiet --depth 1 origin "$commit"
+    else
+      retry git -C "$dir" fetch --quiet --filter=blob:none origin "$commit" \
+        || retry git -C "$dir" fetch --quiet --filter=blob:none origin "$branch"
+    fi
   fi
   git -C "$dir" -c advice.detachedHead=false checkout --quiet --detach "$commit"
 
@@ -100,7 +121,7 @@ status() {
     if [[ -d "$dir/.git" ]]; then
       head="$(git -C "$dir" rev-parse HEAD 2>/dev/null || echo '?')"
       if [[ "$head" == "$commit" ]]; then state="ok"; else state="DRIFT (run fetch)"; fi
-      git -C "$dir" sparse-checkout list >/dev/null 2>&1 && state="$state, sparse"
+      if [[ "$(git -C "$dir" config --get remote.origin.promisor || true)" == true ]]; then state="$state, sparse"; else state="$state, full"; fi
     fi
     printf '%-16s %-14s %-14s %s\n' "$name" "${commit:0:12}" "${head:0:12}" "$state"
   done < <(pins)
