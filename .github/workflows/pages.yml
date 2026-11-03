@@ -1,0 +1,62 @@
+# Continuous deployment of the live demo to GitHub Pages:
+#   https://phoenix24-git.github.io/phoenix-framework/
+# One-time setup: Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - id: versions
+        run: echo "emscripten=$(cat bin/internal/emscripten.version)" >> "$GITHUB_OUTPUT"
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ steps.versions.outputs.emscripten }}
+          actions-cache-folder: emsdk-cache
+      - run: sudo apt-get install -y -qq ninja-build
+      - uses: actions/cache@v4
+        with:
+          path: bin/cache/deps
+          key: deps-${{ hashFiles('engine/cmake/PhoenixDependencies.cmake') }}
+      - name: phoenix build web --release
+        working-directory: examples/hello_phoenix
+        run: ../../bin/phoenix build web --release
+      - name: Assemble site
+        run: |
+          mkdir -p site/devtools
+          cp -r examples/hello_phoenix/build/web/. site/
+          cp engine/web/devtools/index.html site/devtools/index.html
+          touch site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,188 @@
+# Continuous integration: every push and pull request must keep all of this green.
+name: CI
+
+on:
+  push:
+    branches: [main, "release/**", "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  CI: "true"
+
+jobs:
+  lint:
+    name: Lint (clang-format, dotnet format)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: clang-format
+        run: |
+          sudo apt-get install -y -qq clang-format-18
+          git ls-files 'engine/*.cpp' 'engine/*.h' 'templates/*.cpp' | grep -v font5x7 \
+            | xargs clang-format-18 --dry-run --Werror
+      - name: dotnet format
+        run: dotnet format phoenix.slnx --verify-no-changes --verbosity minimal
+
+  engine-native:
+    name: Engine (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-gcc, os: ubuntu-24.04, preset: native-debug, cc: gcc, cxx: g++, experimental: false }
+          - { name: linux-clang, os: ubuntu-24.04, preset: native-debug, cc: clang, cxx: clang++, experimental: false }
+          - { name: linux-asan-ubsan, os: ubuntu-24.04, preset: native-asan, cc: gcc, cxx: g++, experimental: false }
+          - { name: linux-tsan, os: ubuntu-24.04, preset: native-tsan, cc: clang, cxx: clang++, experimental: false }
+          - { name: macos, os: macos-15, preset: native-debug, cc: clang, cxx: clang++, experimental: true }
+          - { name: windows-msvc, os: windows-2025, preset: native-debug, cc: cl, cxx: cl, experimental: true }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: dev/ci/install_linux_deps.sh && sudo apt-get install -y -qq libclang-rt-18-dev
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+      - name: MSVC environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/cache@v4
+        with:
+          path: bin/cache/deps
+          key: deps-${{ hashFiles('engine/cmake/PhoenixDependencies.cmake') }}
+      - name: Configure
+        working-directory: engine
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: cmake --preset ${{ matrix.preset }}
+      - name: Build
+        working-directory: engine
+        run: cmake --build --preset ${{ matrix.preset }}
+      - name: Test
+        working-directory: engine
+        run: ctest --preset ${{ matrix.preset }}
+
+  engine-wasm64:
+    name: Engine (wasm64 + pthreads under Node)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - id: versions
+        run: echo "emscripten=$(cat bin/internal/emscripten.version)" >> "$GITHUB_OUTPUT"
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ steps.versions.outputs.emscripten }}
+          actions-cache-folder: emsdk-cache
+      - run: sudo apt-get install -y -qq ninja-build
+      - uses: actions/cache@v4
+        with:
+          path: bin/cache/deps
+          key: deps-${{ hashFiles('engine/cmake/PhoenixDependencies.cmake') }}
+      - name: Configure
+        working-directory: engine
+        run: cmake --preset wasm64-debug
+      - name: Build
+        working-directory: engine
+        run: cmake --build --preset wasm64-debug
+      - name: Test (Node, real Web Worker threads)
+        working-directory: engine
+        run: ctest --preset wasm64-debug
+
+  dotnet:
+    name: .NET (CLI + C# framework) and C# NativeAOT interop
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dev/ci/install_linux_deps.sh
+      - name: Build
+        run: dotnet build phoenix.slnx -c Release
+      - name: Test
+        run: dotnet test --solution phoenix.slnx -c Release --no-build
+      - name: Publish C# script (NativeAOT shared library)
+        run: dotnet publish examples/csharp_script/CSharpScript.csproj -c Release -r linux-x64 -o build/csharp_script
+      - name: Verify native exports
+        run: nm -D --defined-only build/csharp_script/CSharpScript.so | grep -E 'phoenix_script_(init|update|shutdown)'
+      - uses: actions/cache@v4
+        with:
+          path: bin/cache/deps
+          key: deps-${{ hashFiles('engine/cmake/PhoenixDependencies.cmake') }}
+      - name: C++ engine <-> C# script round trip
+        working-directory: engine
+        env:
+          PHOENIX_TEST_SCRIPT_MODULE: ${{ github.workspace }}/build/csharp_script/CSharpScript.so
+        run: |
+          cmake --preset native-release
+          cmake --build --preset native-release
+          ../build/engine/native-release/test/phoenix_engine_tests --test-suite="ScriptHost*"
+
+  web:
+    name: Web (phoenix CLI + browser e2e)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - id: versions
+        run: echo "emscripten=$(cat bin/internal/emscripten.version)" >> "$GITHUB_OUTPUT"
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ steps.versions.outputs.emscripten }}
+          actions-cache-folder: emsdk-cache
+      - run: dev/ci/install_linux_deps.sh
+      - uses: actions/cache@v4
+        with:
+          path: bin/cache/deps
+          key: deps-${{ hashFiles('engine/cmake/PhoenixDependencies.cmake') }}
+      - name: phoenix doctor
+        run: bin/phoenix doctor
+      - name: "Workflow smoke test: create -> test -> build web"
+        run: |
+          bin/phoenix create "$RUNNER_TEMP/smoke_app"
+          cd "$RUNNER_TEMP/smoke_app"
+          "$GITHUB_WORKSPACE/bin/phoenix" test
+          "$GITHUB_WORKSPACE/bin/phoenix" build web --release
+          test -f build/web/smoke_app.wasm && test -f build/web/phoenix_bootstrap.js
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dev/e2e/package-lock.json
+      - name: Install Playwright
+        working-directory: dev/e2e
+        run: npm ci && npx playwright install --with-deps chromium
+      - name: Browser e2e (WebGPU via SwiftShader + WebGL fallback)
+        working-directory: dev/e2e
+        run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            dev/e2e/playwright-report
+            dev/e2e/test-results
+          retention-days: 7

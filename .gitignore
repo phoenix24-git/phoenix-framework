@@ -1,0 +1,32 @@
+# Build outputs
+build/
+out/
+bin/cache/
+**/bin/Debug/
+**/bin/Release/
+**/obj/
+*.o
+*.a
+*.wasm
+!engine/test/fixtures/**/*.wasm
+
+# IDEs
+.vs/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.user
+*.suo
+CMakeUserPresets.json
+compile_commands.json
+.cache/
+
+# Node / e2e
+node_modules/
+dev/e2e/test-results/
+dev/e2e/playwright-report/
+
+# OS
+.DS_Store
+Thumbs.db

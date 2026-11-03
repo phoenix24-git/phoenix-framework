@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Phoenix C# scripting framework. Scripts reference this package and are
+    published with NativeAOT as a native shared library that the C++ engine
+    loads and calls through plain C exports (see engine/include/phoenix/script_abi.h).
+  -->
+  <PropertyGroup>
+    <RootNamespace>Phoenix</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Phoenix.Framework.Tests" />
+  </ItemGroup>
+</Project>
