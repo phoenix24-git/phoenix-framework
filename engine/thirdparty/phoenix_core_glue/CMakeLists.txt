@@ -117,7 +117,9 @@ else()
     target_compile_definitions(phoenix_foundation PUBLIC LINUXBSD_ENABLED UNIX_ENABLED)
 endif()
 if(MSVC)
-    target_compile_options(phoenix_foundation PRIVATE /W0 /utf-8 /bigobj)
+    target_compile_options(phoenix_foundation PRIVATE /W0 /bigobj)
+    # Sources (and the upstream tests) contain UTF-8 literals.
+    target_compile_options(phoenix_foundation PUBLIC /utf-8)
     # Godot typedefs.h checks __cplusplus, which MSVC only reports correctly with /Zc:__cplusplus.
     target_compile_options(phoenix_foundation PUBLIC /Zc:__cplusplus)
     # MSVC can't reinterpret_cast member pointers to an incomplete class (method_bind_common.h);
@@ -162,6 +164,11 @@ if(PHOENIX_BUILD_TESTS)
     target_compile_definitions(phoenix_foundation_tests PRIVATE TESTS_ENABLED
                                PHOENIX_FOUNDATION_DIR="${FOUNDATION_DIR}")
     set_target_properties(phoenix_foundation_tests PROPERTIES CXX_STANDARD 17 CXX_EXTENSIONS ON)
+    if(MSVC)
+        # Upstream links Windows binaries with an 8 MiB main-thread stack (default is 1 MiB);
+        # the recursive Variant writer tests need it in Debug.
+        target_link_options(phoenix_foundation_tests PRIVATE /STACK:8388608)
+    endif()
     if(NOT MSVC)
         target_compile_options(phoenix_foundation_tests PRIVATE -w -fno-exceptions)
     endif()
