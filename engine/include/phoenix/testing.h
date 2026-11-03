@@ -23,33 +23,65 @@ namespace phoenix {
 class WidgetTester {
   public:
     explicit WidgetTester(Size surface = {800, 600}) : surface_(surface) {}
-    ~WidgetTester() { WidgetsBinding::instance().setRoot(nullptr); }
+    ~WidgetTester() {
+        WidgetsBinding::instance().setRoot(nullptr);
+        WidgetsBinding::instance().setOverlayRoot(nullptr);
+        WidgetsBinding::instance().setFocus(nullptr);
+    }
 
     void pumpWidget(WidgetPtr root) {
         runApp(std::move(root));
         pump();
     }
 
-    /// Lays out and paints one frame.
-    void pump() { frame({-1, -1}, false, false); }
+    /// Lays out and paints one frame (the pointer stays where it was).
+    void pump() { send({}); }
 
     /// Taps the centre of the first semantics node with `label` (text or tooltip).
     /// Returns false if nothing matched.
     bool tap(const std::string& label) {
-        for (const auto& node : WidgetsBinding::instance().semantics()) {
-            if (node.label == label) {
-                tapAt(
-                    {node.rect.x + node.rect.width * 0.5f, node.rect.y + node.rect.height * 0.5f});
-                return true;
-            }
-        }
-        return false;
+        const Rect* r = find(label);
+        if (!r)
+            return false;
+        tapAt(centre(*r));
+        return true;
     }
 
     void tapAt(Offset p) {
-        frame(p, true, false);
-        frame(p, false, true);
+        pointer_ = p;
+        send({.pressed = true, .down = true});
+        send({.released = true});
     }
+
+    /// Presses at `from`, moves to `to` in `steps` frames, and releases there.
+    void drag(Offset from, Offset to, int steps = 4) {
+        pointer_ = from;
+        send({.pressed = true, .down = true});
+        for (int i = 1; i <= steps; ++i) {
+            const float t = static_cast<float>(i) / static_cast<float>(steps);
+            pointer_ = {from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t};
+            send({.down = true});
+        }
+        send({.released = true});
+    }
+
+    /// Moves the pointer without pressing (hover).
+    void hoverAt(Offset p) {
+        pointer_ = p;
+        send({});
+    }
+
+    /// Turns the wheel by `lines` (+ = down) with the pointer at `at`.
+    void scroll(Offset at, float lines) {
+        pointer_ = at;
+        send({.scroll = lines});
+    }
+
+    /// Types `text` into whatever has keyboard focus.
+    void enterText(const std::string& text) { send({.text = text}); }
+
+    void sendKey(KeyEvent key) { send({.keys = {key}}); }
+    void sendKey(Key key) { sendKey(KeyEvent{.key = key}); }
 
     /// Number of semantics nodes whose label equals `label`.
     std::size_t findText(const std::string& label) const {
@@ -59,15 +91,44 @@ class WidgetTester {
         return n;
     }
 
+    /// Rect of the first semantics node with `label`, or nullptr.
+    const Rect* find(const std::string& label) const {
+        for (const auto& node : WidgetsBinding::instance().semantics()) {
+            if (node.label == label)
+                return &node.rect;
+        }
+        return nullptr;
+    }
+
+    static Offset centre(const Rect& r) { return {r.x + r.width * 0.5f, r.y + r.height * 0.5f}; }
+
     const std::vector<PhxDrawRect>& lastFrame() const { return rects_; }
 
   private:
-    void frame(Offset p, bool down, bool tap) {
+    struct Step {
+        bool pressed = false;
+        bool released = false;
+        bool down = false;
+        float scroll = 0;
+        std::string text{};
+        std::vector<KeyEvent> keys{};
+    };
+
+    void send(Step step) {
+        FrameInput input;
+        input.pointer = pointer_;
+        input.pointerDown = step.down;
+        input.pressed = step.pressed;
+        input.released = step.released;
+        input.scrollY = step.scroll;
+        input.text = std::move(step.text);
+        input.keys = std::move(step.keys);
         rects_.clear();
-        WidgetsBinding::instance().drawFrame(surface_, p, down, tap, rects_);
+        WidgetsBinding::instance().drawFrame(surface_, input, rects_);
     }
 
     Size surface_;
+    Offset pointer_{-1, -1};
     std::vector<PhxDrawRect> rects_;
 };
 

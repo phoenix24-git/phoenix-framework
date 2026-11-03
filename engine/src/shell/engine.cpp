@@ -4,6 +4,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <cstdio>
 
 #include "core/log.h"
 #include "framework/engine_api.h"
@@ -14,6 +15,7 @@
 #if PHOENIX_HAS_SCENE
 #include "core/variant/variant_parser.h"
 #include "core_runtime.h"
+#include "phoenix/editor/scene_editor.h"
 #include "phoenix/scene/scene_file.h"
 #include "phoenix/scene/scene_renderer.h"
 #endif
@@ -250,6 +252,68 @@ bool Engine::init(const EngineConfig& config) {
     return true;
 }
 
+namespace {
+KeyEvent translate_key(const SDL_KeyboardEvent& k) {
+    KeyEvent e;
+    e.ctrl = (k.mod & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) != 0;
+    e.shift = (k.mod & SDL_KMOD_SHIFT) != 0;
+    e.alt = (k.mod & SDL_KMOD_ALT) != 0;
+    const SDL_Keycode code = k.key;
+    switch (code) {
+        case SDLK_RETURN:
+        case SDLK_KP_ENTER:
+            e.key = Key::enter;
+            return e;
+        case SDLK_ESCAPE:
+            e.key = Key::escape;
+            return e;
+        case SDLK_BACKSPACE:
+            e.key = Key::backspace;
+            return e;
+        case SDLK_DELETE:
+            e.key = Key::del;
+            return e;
+        case SDLK_TAB:
+            e.key = Key::tab;
+            return e;
+        case SDLK_LEFT:
+            e.key = Key::left;
+            return e;
+        case SDLK_RIGHT:
+            e.key = Key::right;
+            return e;
+        case SDLK_UP:
+            e.key = Key::up;
+            return e;
+        case SDLK_DOWN:
+            e.key = Key::down;
+            return e;
+        case SDLK_HOME:
+            e.key = Key::home;
+            return e;
+        case SDLK_END:
+            e.key = Key::end;
+            return e;
+        case SDLK_PAGEUP:
+            e.key = Key::pageUp;
+            return e;
+        case SDLK_PAGEDOWN:
+            e.key = Key::pageDown;
+            return e;
+        default:
+            break;
+    }
+    if (code >= SDLK_F1 && code <= SDLK_F12) {
+        e.key = static_cast<Key>(static_cast<int>(Key::f1) + static_cast<int>(code - SDLK_F1));
+    } else if (code >= 0x20 && code < 0x7F) {
+        // SDL keycodes for printable keys are their (lower-case) ASCII characters.
+        e.key = Key::character;
+        e.ch = static_cast<char>(code);
+    }
+    return e;
+}
+}  // namespace
+
 bool Engine::handle_event(const SDL_Event& event) {
     switch (event.type) {
         case SDL_EVENT_QUIT:
@@ -262,14 +326,23 @@ bool Engine::handle_event(const SDL_Event& event) {
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
             pointer_x_ = event.button.x;
             pointer_y_ = event.button.y;
-            pointer_down_ = true;
+            if (event.button.button == SDL_BUTTON_LEFT) {
+                pointer_down_ = true;
+                input_.pressed = true;
+            }
             break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
             pointer_x_ = event.button.x;
             pointer_y_ = event.button.y;
-            if (pointer_down_)
-                tapped_ = true;
-            pointer_down_ = false;
+            if (event.button.button == SDL_BUTTON_LEFT) {
+                if (pointer_down_)
+                    input_.released = true;
+                pointer_down_ = false;
+            }
+            break;
+        case SDL_EVENT_MOUSE_WHEEL:
+            input_.scrollX += event.wheel.x;
+            input_.scrollY -= event.wheel.y;  // SDL: +y away from the user; ours: +y scrolls down
             break;
         case SDL_EVENT_FINGER_DOWN:
         case SDL_EVENT_FINGER_UP: {
@@ -278,11 +351,23 @@ bool Engine::handle_event(const SDL_Event& event) {
             pointer_x_ = event.tfinger.x * w;
             pointer_y_ = event.tfinger.y * h;
             const bool down = event.type == SDL_EVENT_FINGER_DOWN;
+            if (down)
+                input_.pressed = true;
             if (!down && pointer_down_)
-                tapped_ = true;
+                input_.released = true;
             pointer_down_ = down;
             break;
         }
+        case SDL_EVENT_KEY_DOWN: {
+            const KeyEvent key = translate_key(event.key);
+            if (key.key != Key::unknown)
+                input_.keys.push_back(key);
+            break;
+        }
+        case SDL_EVENT_TEXT_INPUT:
+            if (event.text.text)
+                input_.text += event.text.text;
+            break;
         default:
             break;
     }
@@ -310,25 +395,44 @@ bool Engine::iterate() {
 
     storage_.pump();
 
+    // F1 toggles the in-game editor; while it is paused, the game (scene, scripts, physics)
+    // stands still but keeps rendering.
+    if (config_.open_editor && stats_.frame == 0)
+        set_editor_open(true);
+    for (auto it = input_.keys.begin(); it != input_.keys.end();) {
+        if (it->key == Key::f1 && config_.editor) {
+            set_editor_open(!editor_open_);
+            it = input_.keys.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    bool run_game = true;
+#if PHOENIX_HAS_SCENE
+    if (editor_open_ && editor_) {
+        editor_->setScene(scene_.get());
+        run_game = editor_->shouldUpdateScene();
+    }
+#endif
+
     // Physics runs one frame ahead on workers; never block the main thread.
     physics_.poll_step();
-    physics_.begin_step(dt);
+    if (run_game)
+        physics_.begin_step(dt);
 
     int w = config_.width, h = config_.height;
     SDL_GetWindowSize(window_, &w, &h);
     PhxFrameInfo& frame = mutable_frame_info();
-    frame = PhxFrameInfo{now,
-                         dt,
-                         static_cast<std::uint32_t>(stats_.frame),
-                         static_cast<float>(w),
-                         static_cast<float>(h),
-                         pointer_x_,
-                         pointer_y_,
-                         pointer_down_ ? 1u : 0u,
-                         physics_.body_count(),
-                         0};
+    frame = PhxFrameInfo{
+        now, dt, static_cast<std::uint32_t>(stats_.frame), static_cast<float>(w),
+        static_cast<float>(h), pointer_x_, pointer_y_,
+        // Presses on editor docks belong to the editor, not the game.
+        pointer_down_ && !(editor_open_ && WidgetsBinding::instance().pointerOverOverlay()) ? 1u
+                                                                                            : 0u,
+        physics_.body_count(), 0};
 
-    scripts_.update(frame);
+    if (run_game)
+        scripts_.update(frame);
     flush_destroyed();
 
     // The 3D scene first, then the widget UI and script draws on top.
@@ -336,15 +440,25 @@ bool Engine::iterate() {
     std::uint32_t clear_rgba = 0x101018FFu;
 #if PHOENIX_HAS_SCENE
     if (scene_) {
-        scene_->Update(dt);
+        if (run_game)
+            scene_->Update(dt);
         clear_rgba = scene::render_scene(*scene_, static_cast<float>(w), static_cast<float>(h),
                                          display_list_);
     }
 #endif
-    WidgetsBinding::instance().drawFrame({static_cast<float>(w), static_cast<float>(h)},
-                                         {pointer_x_, pointer_y_}, pointer_down_, tapped_,
-                                         display_list_);
-    tapped_ = false;
+    input_.pointer = {pointer_x_, pointer_y_};
+    input_.pointerDown = pointer_down_;
+    WidgetsBinding& binding = WidgetsBinding::instance();
+    binding.drawFrame({static_cast<float>(w), static_cast<float>(h)}, input_, display_list_);
+    input_ = FrameInput{};
+    // Text input (IME, on-screen keyboards) only while a text field has focus.
+    if (window_ && binding.wantsTextInput() != text_input_on_) {
+        text_input_on_ = binding.wantsTextInput();
+        if (text_input_on_)
+            SDL_StartTextInput(window_);
+        else
+            SDL_StopTextInput(window_);
+    }
     for (const auto& sr : script_rects_) {
         display_list_.insert(display_list_.end(), sr.data, sr.data + sr.count);
     }
@@ -452,6 +566,43 @@ bool Engine::start_core() {
     return core_started_;
 #else
     return false;
+#endif
+}
+
+void Engine::set_editor_open(bool open) {
+#if PHOENIX_HAS_SCENE
+    if (!config_.editor || open == editor_open_)
+        return;
+    if (open && !editor_) {
+        editor::EditorHooks hooks;
+        hooks.openScene = [this](const std::string& path) {
+            editor_->setScene(nullptr);  // drop selection and edit state of the old scene
+            const bool ok = run_scene(path);
+            editor_->setScene(scene_.get());
+            return ok;
+        };
+        hooks.filesReady = [this] { return core_started_; };
+        hooks.status = [this] {
+            char buf[64];
+            std::snprintf(buf, sizeof buf, "%.0f fps  %llu objects", stats_.fps,
+                          static_cast<unsigned long long>(scene_ ? scene_->gameObjectCount() : 0));
+            return std::string(buf);
+        };
+        hooks.close = [this] { set_editor_open(false); };
+        editor_ = std::make_shared<editor::SceneEditor>(std::move(hooks));
+    }
+    editor_open_ = open;
+    if (open) {
+        editor_->setScene(scene_.get());
+        WidgetsBinding::instance().setOverlayRoot(editor_);
+        PHX_LOG_INFO("Editor: open (F1 to close, F5 play/pause, F6 step)");
+    } else {
+        editor_->setPlaying(true);  // closing the editor resumes the game
+        WidgetsBinding::instance().setOverlayRoot(nullptr);
+        WidgetsBinding::instance().setFocus(nullptr);
+    }
+#else
+    (void)open;
 #endif
 }
 

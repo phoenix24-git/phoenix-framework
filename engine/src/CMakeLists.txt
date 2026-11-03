@@ -28,7 +28,7 @@ if(PHOENIX_WITH_PHYSICS)
 endif()
 
 phoenix_engine_library(framework
-    SOURCES framework/widgets.cpp framework/engine_api.cpp
+    SOURCES framework/widgets.cpp framework/tool_widgets.cpp framework/engine_api.cpp
     DEPS phoenix::core)
 
 phoenix_engine_library(renderer
@@ -78,6 +78,11 @@ if(PHOENIX_WITH_FOUNDATION)
                 "${PHOENIX_COMPONENTS_GEN}/phoenix/scene/components.gen.cpp"
         DEPS phoenix::ecs)
     target_include_directories(phoenix_scene PUBLIC "${PHOENIX_COMPONENTS_GEN}")
+
+    # In-game scene editor (F1): tool widgets over the scene API and component reflection.
+    phoenix_engine_library(editor
+        SOURCES editor/scene_editor.cpp
+        DEPS phoenix::scene phoenix::vfs phoenix::framework)
 endif()
 
 # --- The embedder (window, frame loop, scripts, scene) -----------------------------------------
@@ -86,6 +91,6 @@ phoenix_engine_library(engine
             storage/storage_service.cpp
     DEPS phoenix::core phoenix::physics phoenix::framework phoenix::renderer)
 if(PHOENIX_WITH_FOUNDATION)
-    target_link_libraries(phoenix_engine PUBLIC phoenix::scene phoenix::vfs)
+    target_link_libraries(phoenix_engine PUBLIC phoenix::scene phoenix::vfs phoenix::editor)
     target_compile_definitions(phoenix_engine PRIVATE PHOENIX_HAS_SCENE=1)
 endif()

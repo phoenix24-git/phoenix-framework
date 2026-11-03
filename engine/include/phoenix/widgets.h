@@ -79,27 +79,146 @@ struct BoxConstraints {
     BoxConstraints loosen() const { return {0, maxWidth, 0, maxHeight}; }
 };
 
+// ---------------------------------------------------------------------------
+// Input
+// ---------------------------------------------------------------------------
+/// Keys the framework understands. Printable keys arrive as `character` with `ch` set
+/// (letters lower-case), so shortcuts like Ctrl+S are {character, 's', ctrl}.
+enum class Key : std::uint8_t {
+    unknown,
+    character,
+    enter,
+    escape,
+    backspace,
+    del,
+    tab,
+    left,
+    right,
+    up,
+    down,
+    home,
+    end,
+    pageUp,
+    pageDown,
+    f1,
+    f2,
+    f3,
+    f4,
+    f5,
+    f6,
+    f7,
+    f8,
+    f9,
+    f10,
+    f11,
+    f12,
+};
+
+struct KeyEvent {
+    Key key = Key::unknown;
+    char ch = 0;  ///< for Key::character: the ASCII character (letters lower-case)
+    bool ctrl = false, shift = false, alt = false;
+    /// True for Ctrl+<c> (or Cmd+<c> on macOS, which the engine reports as ctrl).
+    bool isShortcut(char c) const { return key == Key::character && ctrl && ch == c; }
+};
+
+/// Everything the UI needs from one frame of input. Positions are logical pixels.
+struct FrameInput {
+    Offset pointer{-1, -1};
+    bool pointerDown = false;
+    bool pressed = false;            ///< the primary button went down this frame
+    bool released = false;           ///< the primary button went up this frame
+    float scrollX = 0, scrollY = 0;  ///< wheel delta this frame (lines; +y = towards the user)
+    std::vector<KeyEvent> keys;      ///< key presses this frame, in order
+    std::string text;                ///< UTF-8 text typed this frame
+};
+
+class WidgetsBinding;
+
+/// Keyboard focus. Owned by long-lived state (a StatefulWidget member or a controller);
+/// widgets register it while painting. Destroying a focused node clears the focus.
+class FocusNode {
+  public:
+    FocusNode() = default;
+    FocusNode(const FocusNode&) = delete;
+    FocusNode& operator=(const FocusNode&) = delete;
+    ~FocusNode();
+
+    bool hasFocus() const;
+    void requestFocus();
+    void unfocus();
+
+    /// Called when this node loses focus (another node takes it, it is unfocused, or its
+    /// widget leaves the screen). Not called when the node is destroyed.
+    std::function<void()> onBlur{};
+};
+
+/// Pointer callbacks for one interactive region. Callbacks may outlive the widget that
+/// registered them (a drag keeps its handlers until release), so capture state that lives
+/// at least as long as the interaction: a StatefulWidget, a controller or a shared_ptr.
+struct PointerHandlers {
+    std::function<void(Offset)> onTap{};    ///< press and release inside, without dragging
+    std::function<void(Offset)> onPress{};  ///< the button went down on this region
+    /// Called every frame the pointer moves while this region holds the press (after it
+    /// moved past the drag slop): `position`, and `delta` since the previous call.
+    std::function<void(Offset position, Offset delta)> onDrag{};
+    std::function<void(Offset)> onDragEnd{};
+    /// Wheel over the region (lines). Scroll bubbles: the topmost region with onScroll wins.
+    std::function<void(Offset delta)> onScroll{};
+    /// Pressing the region moves keyboard focus here (nullptr: pressing clears focus).
+    FocusNode* focus = nullptr;
+};
+
 /// Collects draw commands and hit targets while painting one frame.
 class PaintContext {
   public:
-    PaintContext(std::vector<PhxDrawRect>& out, Offset pointer, bool pointer_down)
-        : out_(out), pointer_(pointer), pointer_down_(pointer_down) {}
+    PaintContext(std::vector<PhxDrawRect>& out, Offset pointer, bool pointer_down);
+    PaintContext(std::vector<PhxDrawRect>& out, const FrameInput& input);
 
     void drawRect(Rect r, Color c, float rotation = 0.0f);
+    /// Draws the outline of `r`, `thickness` pixels wide, inside the rect.
+    void drawBorder(Rect r, Color c, float thickness = 1.0f);
     /// Restricts drawing to `r` (intersected with the current clip) until popClip().
     /// Axis-aligned rects are clipped exactly; rotated rects are culled by centre.
     void pushClip(Rect r);
     void popClip();
+    /// The current clip, or a huge rect when nothing is clipped.
+    Rect clip() const;
+
     /// Registers a tap target; the callback receives the tap position.
     void addHitTarget(Rect r, std::function<void(Offset)> on_tap);
-    Offset pointer() const { return pointer_; }
-    bool pointerDown() const { return pointer_down_; }
+    /// Registers an interactive region. Regions are opaque: a press goes to the topmost
+    /// region under the pointer, even one with no handlers (use that to block the UI below).
+    /// The region is clipped to the current clip.
+    void addInteraction(Rect r, PointerHandlers handlers);
+    /// Receives key presses and typed text while `focus` has focus. Return true to consume
+    /// the key. With focus == nullptr the handler sees keys nobody focused consumed
+    /// (shortcuts); later-registered handlers run first.
+    void addKeyHandler(FocusNode* focus, std::function<bool(const KeyEvent&)> on_key,
+                       std::function<void(const std::string&)> on_text = {});
+    /// Paints `painter` after the whole tree (menus, dropdowns, tooltips): it draws on top
+    /// and its hit targets win.
+    void addOverlay(std::function<void(PaintContext&)> painter);
+
+    Offset pointer() const { return input_->pointer; }
+    bool pointerDown() const { return input_->pointerDown; }
+    const FrameInput& input() const { return *input_; }
+    /// The pointer is inside `r` and no other region holds the press.
+    bool hovered(Rect r) const;
 
     struct HitTarget {
         Rect rect;
-        std::function<void(Offset)> on_tap;
+        PointerHandlers handlers;
     };
     std::vector<HitTarget>& hitTargets() { return hits_; }
+
+    struct KeyTarget {
+        FocusNode* focus;
+        std::function<bool(const KeyEvent&)> on_key;
+        std::function<void(const std::string&)> on_text;
+    };
+    std::vector<KeyTarget>& keyTargets() { return keys_; }
+    std::vector<std::function<void(PaintContext&)>>& overlays() { return overlays_; }
 
     /// Semantics: labelled regions (text, tooltips) used by tests/accessibility.
     struct SemanticsNode {
@@ -112,10 +231,12 @@ class PaintContext {
   private:
     std::vector<PhxDrawRect>& out_;
     std::vector<HitTarget> hits_;
+    std::vector<KeyTarget> keys_;
+    std::vector<std::function<void(PaintContext&)>> overlays_;
     std::vector<SemanticsNode> semantics_;
     std::vector<Rect> clips_;
-    Offset pointer_;
-    bool pointer_down_;
+    FrameInput owned_input_;
+    const FrameInput* input_;
 };
 
 // ---------------------------------------------------------------------------
@@ -212,6 +333,8 @@ struct TextStyle {
 WidgetPtr Text(std::string text, TextStyle style = {});
 /// Measures text rendered with the built-in 5x7 bitmap font.
 Size measureText(const std::string& text, float font_size);
+/// Paints `text` with its top-left at `origin` (what Text paints, without a widget).
+void drawText(PaintContext& context, Offset origin, const std::string& text, TextStyle style);
 
 struct GestureDetectorProps {
     VoidCallback onTap{};
@@ -281,10 +404,17 @@ class WidgetsBinding {
 
     void setRoot(WidgetPtr root) { root_ = std::move(root); }
     bool hasRoot() const { return root_ != nullptr; }
+    /// A second tree painted on top of the root (the in-game editor, debug overlays). It is
+    /// laid out with the same viewport; where it registers no hit regions, input reaches
+    /// the root below.
+    void setOverlayRoot(WidgetPtr overlay) { overlay_ = std::move(overlay); }
+    const WidgetPtr& overlayRoot() const { return overlay_; }
     void markNeedsBuild() { needs_build_ = true; }
 
-    /// Lays out and paints the tree for a viewport, appending draw commands.
-    /// `tapped` is true on the frame the pointer was released (a "tap").
+    /// Lays out and paints the tree for a viewport, appending draw commands, then
+    /// dispatches `input` (taps, drags, wheel, keys, text).
+    void drawFrame(Size viewport, const FrameInput& input, std::vector<PhxDrawRect>& out);
+    /// Pointer-only form: `tapped` is true on the frame the pointer was released.
     void drawFrame(Size viewport, Offset pointer, bool pointer_down, bool tapped,
                    std::vector<PhxDrawRect>& out);
 
@@ -294,12 +424,41 @@ class WidgetsBinding {
     /// True while the current frame is rebuilding (StatelessWidget::build runs).
     bool rebuilding() const { return rebuilding_; }
 
+    /// Keyboard focus (see FocusNode).
+    FocusNode* focused() const { return focused_; }
+    /// Moves focus to `node` (nullptr clears it), calling the old node's onBlur.
+    void setFocus(FocusNode* node);
+    /// True while something has keyboard focus: the engine turns on text input (IME,
+    /// on-screen keyboards) only then.
+    bool wantsTextInput() const { return focused_ != nullptr; }
+    /// True while a region holds the press (a drag or a press in progress).
+    bool pointerCaptured() const { return captured_; }
+    /// The region holding the press (valid while pointerCaptured()).
+    const Rect& captureRect() const { return capture_rect_; }
+    /// True if the last frame's topmost region under the pointer belonged to the overlay
+    /// root: the engine uses it to keep editor clicks out of the game.
+    bool pointerOverOverlay() const { return over_overlay_; }
+
   private:
+    void dispatch(PaintContext& ctx, const FrameInput& input, std::size_t overlay_first_hit);
+
     WidgetPtr root_;
+    WidgetPtr overlay_;
     bool needs_build_ = true;
     bool rebuilding_ = false;
     std::vector<PaintContext::SemanticsNode> semantics_;
     std::uint64_t frames_ = 0;
+
+    // Pointer state across frames.
+    bool was_down_ = false;
+    bool captured_ = false;
+    bool dragging_ = false;
+    bool over_overlay_ = false;
+    Rect capture_rect_{};
+    PointerHandlers capture_{};
+    Offset press_pos_{};
+    Offset last_pos_{};
+    FocusNode* focused_ = nullptr;
 };
 
 }  // namespace phoenix

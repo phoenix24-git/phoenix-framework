@@ -8,6 +8,29 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **In-game editor** (F1 in any app with the scene layer; see `docs/editor.md`):
+  - **Scene dock:** the hierarchy.
+  - **Inspector:** name, active, tag, layer, Transform, and every component's reflected fields,
+    edited by dragging or typing; it can also add components (searchable) and remove them.
+  - **Output and FileSystem docks:** the log, and `res://` (click a `.pscn` to open it).
+  - **Run controls:** Play/Pause/Step (F5/F6), which freeze the scene, C# scripts and physics together.
+  - **Commands:** add, duplicate and delete (Ctrl+N, Ctrl+D, Delete).
+  - `--editor` opens it at startup and `--no-editor` disables it.
+- **UI input:**
+  - **Pointer:** drags with pointer capture, wheel scrolling and hover.
+  - **Keyboard:** keys and typed text routed to focused widgets (`FocusNode`), with shortcut handlers.
+  - **Layers:** overlay painters for menus, and an overlay root above the app.
+  - The engine forwards SDL wheel, key and text events.
+- **Tool widgets** (`phoenix/tool_widgets.h`):
+  - **Layout:** `Stack`/`Positioned`, `ScrollView`, `SplitView`.
+  - **Controls:** `TextField`, `NumberField` (drag to scrub), `Checkbox`, `Dropdown`, `MenuBar`,
+    `TreeView`, `TabView`, `ToolButton`.
+  - **Composition:** `Panel`, `Section`, `PropertyRow`, `InputBlocker`.
+  - **Testing:** `WidgetTester` gains `drag`, `scroll`, `enterText` and `sendKey`.
+- **.NET runtime sources for wasm64 C#** ([ADR 0005](docs/adr/0005-dotnet-runtime-sources-for-wasm64-csharp.md)):
+  `dotnet/runtime`, `dotnet/runtimelab` NativeAOT-LLVM and the Mono wasm64 fork are pinned in
+  `bin/internal/dotnet-runtime.lock`. `dev/tools/dotnet_runtime.sh fetch|status|path|bump` makes
+  verified, blobless, sparse clones into `bin/cache/` (git-ignored).
 - **Scenes and scripts** (see `docs/scenes.md`):
   - `.pscn` scene files use Godot's `.tscn` syntax, with `[node]`, `[component]` and `[script]`
     sections; start one with `phoenix::runScene("res://…")`.

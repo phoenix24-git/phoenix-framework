@@ -16,3 +16,4 @@ old one "Superseded by NNNN".
 | [0002](0002-wasm64-pthreads-web-target.md) | wasm64 + pthreads + WebGPU as the web target | Accepted |
 | [0003](0003-zero-overhead-csharp-interop.md) | Zero-overhead C# interop via NativeAOT and a C Script ABI | Accepted |
 | [0004](0004-virtual-console-profile.md) | Virtual console profile: fixed VRAM/CPU budgets reserved at boot | Accepted |
+| [0005](0005-dotnet-runtime-sources-for-wasm64-csharp.md) | Pinned .NET runtime sources for wasm64 C# scripts | Accepted |

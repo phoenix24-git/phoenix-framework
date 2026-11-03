@@ -81,6 +81,63 @@ parent, or as the root passed to `runApp`) and call `setState` to rebuild.
 There is no Element tree yet, so a `StatefulWidget` created inside `build()` would lose its state
 on every rebuild. Reconciliation with keys is on the [roadmap](roadmap.md).
 
+## Input
+
+Each frame the binding receives a `FrameInput`: pointer position and button state, the
+press/release edges, wheel delta, key presses and typed text. Widgets register **regions**
+while painting:
+
+```cpp
+ctx.addInteraction(rect, {
+    .onTap = [](Offset p) { ... },                 // press + release without dragging
+    .onDrag = [](Offset p, Offset delta) { ... },  // keeps going outside the rect until release
+    .onScroll = [](Offset lines) { ... },          // wheel; bubbles to the topmost region with onScroll
+    .focus = &focusNode,                           // pressing moves keyboard focus here
+});
+ctx.addKeyHandler(&focusNode, onKey, onText);      // keys while focusNode has focus
+ctx.addKeyHandler(nullptr, onShortcut);            // keys no focused widget consumed
+ctx.addOverlay([](PaintContext& top) { ... });     // paint last: menus, dropdowns
+```
+
+Regions are opaque. A press goes to the topmost region under the pointer, so a panel can register
+an empty region to keep clicks from reaching the game below it (`InputBlocker`). `ctx.hovered(rect)`
+tells a widget whether to draw its hover state.
+
+`WidgetsBinding::setOverlayRoot()` installs a second tree painted above the app. Where the overlay
+has no regions, input reaches the app below. The [in-game editor](editor.md) uses this.
+
+## Tool widgets
+
+`#include <phoenix/tool_widgets.h>` adds the controls editors are built from, in a dark theme
+(`ToolTheme`). Their state lives in small controllers (`TextEditingController`,
+`ScrollController`, `SplitController`, `PopupState`, `TreeState`) held by `shared_ptr`. Keep the
+controllers in your `StatefulWidget` and pass the same ones to every build.
+
+| Widget | Props (in order) |
+|---|---|
+| `Stack` / `Positioned` | `children` / `left`, `top`, `right`, `bottom`, `width`, `height`, `child` |
+| `ScrollView` | `controller`, `child` (vertical; wheel and draggable scrollbar) |
+| `SplitView` | `vertical`, `controller`, `first`, `second` (draggable divider) |
+| `InputBlocker` | `child` |
+| `ToolButton` | `label`, `onPressed`, `selected`, `tooltip`, `color`, `fontSize` |
+| `Checkbox` | `value`, `onChanged`, `label` |
+| `TextField` | `controller`, `hint`, `onChanged`, `onSubmitted`, `width`, `fontSize` |
+| `NumberField` | `value`, `onChanged`, `controller`, `step`, `decimals`, `integer`, `label`, `labelColor` (drag to scrub, click to type) |
+| `Dropdown` | `items`, `selected`, `onChanged`, `state` |
+| `MenuBar` | `menus` (`Menu{title, items}`, `MenuItem{label, shortcut, onSelected, enabled}`), `state`, `trailing` |
+| `TreeView` | `roots` (`TreeItem{id, label, color, children}`), `state`, `onSelected`, `rowHeight` |
+| `TabView` | `tabs` (`Tab{title, child}`), `index` |
+| `Panel` | `title`, `actions`, `child`, `background` |
+| `Section` | `title`, `expanded`, `onToggle`, `actions`, `child` |
+| `PropertyRow` | `label`, `editor`, `labelWidth` |
+
+Text fields edit with the arrow keys, Home/End, Backspace/Delete, Enter (commit) and Escape
+(cancel). While a field has focus the engine turns on text input, so IMEs and on-screen keyboards
+work there.
+
+`WidgetTester` drives all of this: `tap`, `tapAt`, `drag(from, to)`, `hoverAt`,
+`scroll(at, lines)`, `enterText`, `sendKey`, plus `find(label)` for a widget's rect.
+
 ## Engine services
 
 ```cpp

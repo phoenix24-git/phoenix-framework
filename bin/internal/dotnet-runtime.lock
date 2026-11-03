@@ -1,0 +1,8 @@
+# Pinned .NET runtime sources, used for the wasm64 C# scripting work (ADR 0005).
+# Fetch them with: dev/tools/dotnet_runtime.sh fetch [name]
+# Bump a pin with:  dev/tools/dotnet_runtime.sh bump <name>   (then review and commit this file)
+#
+# name            url                                         branch                              commit
+runtime           https://github.com/dotnet/runtime.git       main                                794ffe43a0807d8a5dcf48b154ef1beee430e07b
+nativeaot-llvm    https://github.com/dotnet/runtimelab.git    feature/NativeAOT-LLVM              527a565752062b20bb9693eea6c884b34ecce7bf
+mono-wasm64       https://github.com/vulkan101/runtime.git    wasm64_addressSpaceLimitationFix    d6620757d976b5a0e93a582145039baf0eedde99

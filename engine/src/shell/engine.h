@@ -10,6 +10,7 @@
 #include "core/job_system.h"
 #include "phoenix/console_profile.h"
 #include "phoenix/script_abi.h"
+#include "phoenix/widgets.h"
 #include "physics/physics_world.h"
 #include "renderer/renderer.h"
 #include "scripting/script_host.h"
@@ -42,6 +43,10 @@ struct EngineConfig {
     /// When > 0, every frame advances time by exactly this many seconds (deterministic
     /// headless runs and tests) instead of the wall clock.
     float fixed_dt = 0.0f;
+    /// The in-game scene editor (F1). Needs the scene layer (PHOENIX_WITH_FOUNDATION).
+    bool editor = true;
+    /// Open the editor on the first frame (--editor).
+    bool open_editor = false;
     int width = 1024;
     int height = 640;
 };
@@ -62,6 +67,10 @@ struct EngineStats {
 
 /// The embedder: owns the window, the console resources and the frame loop.
 /// One instance per process (like Flutter's Shell).
+namespace editor {
+class SceneEditor;
+}
+
 class Engine {
   public:
     Engine();
@@ -93,6 +102,9 @@ class Engine {
     bool run_scene(const std::string& path);
     /// The running scene, or nullptr.
     scene::Scene* scene() { return scene_.get(); }
+    /// Opens or closes the in-game editor (F1). No-op when the editor is not available.
+    void set_editor_open(bool open);
+    bool editor_open() const { return editor_open_; }
     /// Script ABI: destroys at the end of the frame, like Unity.
     void destroy_later(std::uint64_t object) { pending_destroy_.push_back(object); }
 
@@ -109,6 +121,8 @@ class Engine {
     StorageService storage_;
     ScriptHost scripts_;
     std::unique_ptr<scene::Scene> scene_;
+    std::shared_ptr<editor::SceneEditor> editor_;
+    bool editor_open_ = false;
     std::vector<std::uint64_t> pending_destroy_;
     bool core_started_ = false;
     LinearArena frame_arena_;
@@ -126,7 +140,9 @@ class Engine {
     std::uint64_t frames_since_publish_ = 0;
     float pointer_x_ = 0, pointer_y_ = 0;
     bool pointer_down_ = false;
-    bool tapped_ = false;
+    /// Input gathered from SDL events since the last frame (presses, wheel, keys, text).
+    FrameInput input_;
+    bool text_input_on_ = false;
     bool quit_ = false;
 };
 
