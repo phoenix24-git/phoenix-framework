@@ -55,7 +55,7 @@ class Loader {
     }
 
     SceneLoadResult fail(Error err, const String& message) {
-        for (int i = created_.size() - 1; i >= 0; --i) {
+        for (int64_t i = created_.size() - 1; i >= 0; --i) {
             if (created_[i].valid()) {
                 scene_.DestroyImmediate(created_[i]);
             }
