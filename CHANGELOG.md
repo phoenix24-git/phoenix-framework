@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `phoenix build web -o/--output <dir>`: publishes the finished bundle to a folder. It only replaces a
+  folder that is empty or holds a previous Phoenix bundle.
+- Documentation site in `docs/`, served by GitHub Pages from `main /docs` with Jekyll and
+  just-the-docs. Pages: getting started, CLI reference, widgets, C# scripting, web hosting and
+  testing.
+- Live demo committed to `docs/demo` (plus DevTools), rebuilt by the new `Web demo` workflow.
+- `.github/rulesets/protect-main.json`: an importable branch-protection ruleset for `main`.
+- CI job that builds `docs/` with the GitHub Pages Jekyll toolchain.
+
+### Changed
+
+- GitHub Actions bumped to their Node 24 majors.
+- Windows and macOS engine jobs are now required. They passed on GitHub runners.
+
+### Removed
+
+- `pages.yml`, the Actions-based Pages deploy. The repository serves Pages from `main /docs`.
+
 ## [0.1.0] - 2026-11-03
 
 ### Added

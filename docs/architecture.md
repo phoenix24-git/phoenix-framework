@@ -1,6 +1,11 @@
+---
+title: Architecture
+nav_order: 8
+---
+
 # Phoenix architecture
 
-This page describes how Phoenix is put together and why. Decisions that are expensive to reverse are recorded as ADRs in [`adr/`](adr/).
+This page describes how Phoenix is put together and why. Decisions that are expensive to reverse are recorded as ADRs in [`adr/`](adr/index.md).
 
 ## Layers
 

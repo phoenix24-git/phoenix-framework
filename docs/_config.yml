@@ -1,0 +1,51 @@
+# GitHub Pages (Settings -> Pages -> Deploy from branch: main /docs) builds this folder with Jekyll.
+title: Phoenix
+description: Flutter's workflow on a C++ engine — SDL3, Jolt, WebGPU, wasm64 and C# scripting.
+url: https://phoenix24-git.github.io
+baseurl: /phoenix-framework
+remote_theme: just-the-docs/just-the-docs@v0.12.0
+plugins:
+  - jekyll-remote-theme
+  - jekyll-relative-links
+  - jekyll-seo-tag
+
+color_scheme: dark
+search_enabled: true
+heading_anchors: true
+back_to_top: true
+aux_links:
+  "Live demo": /phoenix-framework/demo/
+  "GitHub": https://github.com/phoenix24-git/phoenix-framework
+aux_links_new_tab: false
+nav_external_links:
+  - title: Live demo ↗
+    url: /phoenix-framework/demo/
+  - title: DevTools ↗
+    url: /phoenix-framework/demo/devtools/
+gh_edit_link: true
+gh_edit_link_text: Edit this page on GitHub
+gh_edit_repository: https://github.com/phoenix24-git/phoenix-framework
+gh_edit_branch: main
+gh_edit_source: docs
+gh_edit_view_mode: edit
+footer_content: Apache-2.0 · Phoenix is an independent project, not affiliated with Google or Flutter.
+
+relative_links:
+  enabled: true
+  collections: false
+# demo/ is a prebuilt app; files without front matter are copied verbatim (no Liquid).
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - vendor
+
+callouts:
+  note:
+    title: Note
+    color: blue
+  important:
+    title: Important
+    color: yellow
+  warning:
+    title: Warning
+    color: red

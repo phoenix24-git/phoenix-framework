@@ -1,3 +1,9 @@
+---
+title: 0003 C# interop
+parent: Decisions (ADRs)
+nav_order: 3
+---
+
 # 0003. Zero-overhead C# interop via NativeAOT and a C Script ABI
 
 - Status: Accepted

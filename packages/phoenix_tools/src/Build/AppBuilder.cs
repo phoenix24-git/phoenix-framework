@@ -142,6 +142,33 @@ public sealed class AppBuilder(PhoenixSdk sdk, Toolchain toolchain, ProcessRunne
         }));
     }
 
+    /// <summary>
+    /// Publishes a finished web bundle to <paramref name="destination"/> (e.g. docs/demo for
+    /// GitHub Pages). The destination is replaced, but only if it is empty or holds a previous
+    /// Phoenix bundle (has version.json), so a typo can never wipe an unrelated directory.
+    /// </summary>
+    public static int PublishBundle(string bundleDir, string destination)
+    {
+        var full = Path.GetFullPath(destination);
+        if (Directory.Exists(full) && Directory.EnumerateFileSystemEntries(full).Any())
+        {
+            if (!File.Exists(Path.Combine(full, "version.json")))
+            {
+                throw new ToolExitException(
+                    $"Refusing to overwrite {full}: it is not empty and does not contain a previous Phoenix web build (version.json).");
+            }
+            foreach (var file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories))
+            {
+                File.Delete(file);
+            }
+            foreach (var dir in Directory.EnumerateDirectories(full).ToList())
+            {
+                Directory.Delete(dir, recursive: true);
+            }
+        }
+        return FileSystemUtil.CopyDirectory(bundleDir, full);
+    }
+
     internal static string InjectBootstrapConfig(string bootstrap, PhoenixProject project, BuildOptions options,
         string engineVersion)
     {

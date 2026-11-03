@@ -1,3 +1,9 @@
+---
+title: Decisions (ADRs)
+nav_order: 11
+has_children: true
+---
+
 # Architecture Decision Records
 
 Short, numbered records of decisions that are costly to reverse. Write a new ADR

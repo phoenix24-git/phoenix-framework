@@ -9,6 +9,12 @@ bin/cache/
 *.a
 *.wasm
 !engine/test/fixtures/**/*.wasm
+# The live demo served by GitHub Pages (docs/) is a committed build.
+!docs/demo/*.wasm
+
+# Local Jekyll preview of docs/
+docs/_site/
+docs/.jekyll-cache/
 
 # IDEs
 .vs/
