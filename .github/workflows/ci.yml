@@ -168,10 +168,11 @@ jobs:
             -DPHOENIX_APP_DIR="$PWD/examples/skyline" -DPHOENIX_APP_NAME=skyline -DPHOENIX_APP_TITLE=Skyline \
             -DPHOENIX_BUILD_MODE=release -DPHOENIX_REPO_ROOT="$PWD"
           cmake --build build/skyline
-          build/skyline/out/skyline --headless --frames=200000 --script="$PWD/build/skyline_scripts/Skyline.so" \
-            --screenshot="$PWD/build/skyline.bmp" 2>&1 | tee build/skyline.log
+          # --fixed-dt: 60 simulated frames per second, whatever the runner's speed.
+          build/skyline/out/skyline --headless --fixed-dt=0.0166667 --frames=3600 \
+            --script="$PWD/build/skyline_scripts/Skyline.so" --screenshot="$PWD/build/skyline.bmp" 2>&1 | tee build/skyline.log
           grep -q "3 of 3 scripts attached" build/skyline.log
-          grep -q "Skyline: score 3" build/skyline.log
+          grep -q "Skyline: score 10" build/skyline.log
       - uses: actions/upload-artifact@v7
         if: always()
         with:

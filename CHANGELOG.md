@@ -20,7 +20,10 @@ All notable changes to this project are documented here. The format follows
   - a parallelogram draw mode (`PHX_DRAW_PARALLELOGRAM`)
   - scene functions: find, create, destroy, `get_component`, `get_field`
   - a `phoenix_script_attach` export
-- **Engine flags:** `--screenshot=` (save the last frame), `--res=` (the folder behind `res://`).
+- **Engine flags:**
+  - `--screenshot=` saves the last frame.
+  - `--res=` sets the folder behind `res://`.
+  - `--fixed-dt=` advances every frame by a fixed amount of time, for deterministic headless runs.
 - **Skyline example** (`examples/skyline`): an original 3D block-stacking game, built from a scene
   file and C# scripts. CI plays it headless.
 

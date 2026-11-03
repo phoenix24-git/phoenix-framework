@@ -39,6 +39,9 @@ struct EngineConfig {
     std::uint64_t max_frames = 0;
     /// Save the last frame (with max_frames) as a BMP file.
     std::string screenshot;
+    /// When > 0, every frame advances time by exactly this many seconds (deterministic
+    /// headless runs and tests) instead of the wall clock.
+    float fixed_dt = 0.0f;
     int width = 1024;
     int height = 640;
 };

@@ -76,8 +76,8 @@ web.
 Headless, playing by itself and saving a screenshot (this is what CI runs):
 
 ```bash
-SKYLINE_AUTOPLAY=1 build/linux/skyline --headless --frames=200000 \
-    --script=$PWD/build/scripts/Skyline.so --screenshot=skyline.bmp
+SKYLINE_AUTOPLAY=1 build/linux/skyline --headless --fixed-dt=0.0166667 --frames=3600 \
+    --script=$PWD/build/scripts/Skyline.so --screenshot=skyline.bmp   # one simulated minute
 ```
 
 To run the rules' tests:

@@ -300,9 +300,13 @@ PhxDrawRect* Engine::reserve_rects(std::uint32_t count) {
 
 bool Engine::iterate() {
     const std::uint64_t now_ns = SDL_GetTicksNS();
-    const float dt = std::min(static_cast<float>(now_ns - last_ns_) / 1e9f, 1.0f / 15.0f);
+    float dt = std::min(static_cast<float>(now_ns - last_ns_) / 1e9f, 1.0f / 15.0f);
     last_ns_ = now_ns;
-    const double now = static_cast<double>(now_ns - start_ns_) / 1e9;
+    double now = static_cast<double>(now_ns - start_ns_) / 1e9;
+    if (config_.fixed_dt > 0.0f) {
+        dt = config_.fixed_dt;
+        now = static_cast<double>(stats_.frame + 1) * config_.fixed_dt;
+    }
 
     storage_.pump();
 

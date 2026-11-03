@@ -72,6 +72,8 @@ phoenix::EngineConfig make_config(int argc, char** argv) {
             c.res_dir = v;
         else if (parse_flag(argv[i], "--screenshot", &v))
             c.screenshot = v;
+        else if (parse_flag(argv[i], "--fixed-dt", &v))
+            c.fixed_dt = std::strtof(v, nullptr);
         else if (parse_flag(argv[i], "--vram-mb", &v))
             c.profile.vram_budget_bytes = std::strtoull(v, nullptr, 10) * phoenix::kMiB;
         else if (parse_flag(argv[i], "--workers", &v))
