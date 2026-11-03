@@ -1,0 +1,73 @@
+# Keeps the live web demo in docs/demo up to date.
+#
+# GitHub Pages serves the docs/ folder of main ("Deploy from a branch: main /docs"), so the demo is
+# a committed build. Whenever code that affects it lands on main, this workflow rebuilds it with
+# `phoenix build web --release -o docs/demo`, commits the result if it changed, and asks Pages to
+# redeploy. Site: https://phoenix24-git.github.io/phoenix-framework/demo/
+name: Web demo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "engine/**"
+      - "packages/phoenix_tools/**"
+      - "templates/**"
+      - "examples/hello_phoenix/**"
+      - "bin/internal/**"
+      - ".github/workflows/demo.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: web-demo
+  cancel-in-progress: true
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - id: versions
+        run: echo "emscripten=$(cat bin/internal/emscripten.version)" >> "$GITHUB_OUTPUT"
+      - uses: mymindstorm/setup-emsdk@v16
+        with:
+          version: ${{ steps.versions.outputs.emscripten }}
+          actions-cache-folder: emsdk-cache
+      - run: sudo apt-get install -y -qq ninja-build
+      - uses: actions/cache@v6
+        with:
+          path: bin/cache/deps
+          key: deps-${{ hashFiles('engine/cmake/PhoenixDependencies.cmake') }}
+      - name: phoenix build web --release -o docs/demo
+        working-directory: examples/hello_phoenix
+        run: ../../bin/phoenix build web --release -o ../../docs/demo
+      - name: Add DevTools
+        run: mkdir -p docs/demo/devtools && cp engine/web/devtools/index.html docs/demo/devtools/index.html
+      - name: Commit if changed
+        id: commit
+        run: |
+          git add docs/demo
+          if git diff --cached --quiet; then
+            echo "Demo is already up to date."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(demo): rebuild web demo from ${GITHUB_SHA::7}"
+          git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      - name: Request a Pages build
+        # Pushes made with GITHUB_TOKEN don't trigger other workflows; ask Pages explicitly.
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/builds" || echo "::warning::Pages build request failed; Pages will pick up the commit on the next push."

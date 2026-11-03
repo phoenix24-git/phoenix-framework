@@ -1,3 +1,8 @@
+---
+title: Debugging
+nav_order: 9
+---
+
 # Debugging Phoenix apps
 
 ## Web (`phoenix run -d chrome`)

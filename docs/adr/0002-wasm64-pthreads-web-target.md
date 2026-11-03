@@ -1,3 +1,9 @@
+---
+title: 0002 wasm64 web target
+parent: Decisions (ADRs)
+nav_order: 2
+---
+
 # 0002. wasm64 + pthreads + WebGPU as the web target
 
 - Status: Accepted

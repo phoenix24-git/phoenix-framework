@@ -1,6 +1,7 @@
 // Copyright 2026 The Phoenix Authors. SPDX-License-Identifier: Apache-2.0
 using System.CommandLine;
 using Phoenix.Tools.Build;
+using Phoenix.Tools.Infrastructure;
 using Phoenix.Tools.Project;
 
 namespace Phoenix.Tools.Commands;
@@ -20,8 +21,16 @@ internal static class BuildCommand
     private static Command Target(ToolContext ctx, BuildTarget target, string description)
     {
         var mode = ModeOptions.Create(defaultMode: BuildMode.Release);
+        var output = new Option<string?>("--output", "-o")
+        {
+            Description = "Also publish the finished bundle to this directory (e.g. ../../docs/demo for GitHub Pages).",
+        };
         var command = new Command(target.CliName(), description);
         mode.AddTo(command);
+        if (target == BuildTarget.Web)
+        {
+            command.Options.Add(output);
+        }
         command.SetAction(async (parse, ct) =>
         {
             if (target != BuildTarget.Web && target != BuildTargetExtensions.HostDesktop())
@@ -30,7 +39,13 @@ internal static class BuildCommand
                 return 1;
             }
             var project = PhoenixProject.Find(ctx.WorkingDirectory);
-            await ctx.Builder.BuildAsync(project, new BuildOptions(target, mode.Resolve(parse)), ct).ConfigureAwait(false);
+            var result = await ctx.Builder.BuildAsync(project, new BuildOptions(target, mode.Resolve(parse)), ct).ConfigureAwait(false);
+            if (target == BuildTarget.Web && parse.GetValue(output) is { } destination)
+            {
+                var path = Path.GetFullPath(Path.Combine(ctx.WorkingDirectory, destination));
+                var files = AppBuilder.PublishBundle(result.OutputDir, path);
+                ctx.Terminal.Success($"✓ Published {files} files to {path}");
+            }
             return 0;
         });
         return command;

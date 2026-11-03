@@ -1,3 +1,8 @@
+---
+title: Roadmap
+nav_order: 10
+---
+
 # Roadmap
 
 Honest status of the MVP and what comes next. Items are ordered roughly by priority.

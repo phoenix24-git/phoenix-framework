@@ -1,0 +1,53 @@
+{
+  "name": "Protect main",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"],
+      "exclude": []
+    }
+  },
+  "bypass_actors": [
+    {
+      "actor_id": 15368,
+      "actor_type": "Integration",
+      "bypass_mode": "always"
+    }
+  ],
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": true,
+        "allowed_merge_methods": ["merge", "squash", "rebase"]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          { "context": "Docs site (Jekyll, as GitHub Pages builds it)" },
+          { "context": "Lint (clang-format, dotnet format)" },
+          { "context": "Engine (linux-gcc)" },
+          { "context": "Engine (linux-clang)" },
+          { "context": "Engine (linux-asan-ubsan)" },
+          { "context": "Engine (linux-tsan)" },
+          { "context": "Engine (macos)" },
+          { "context": "Engine (windows-msvc)" },
+          { "context": "Engine (wasm64 + pthreads under Node)" },
+          { "context": ".NET (CLI + C# framework) and C# NativeAOT interop" },
+          { "context": "Web (phoenix CLI + browser e2e)" }
+        ]
+      }
+    }
+  ]
+}

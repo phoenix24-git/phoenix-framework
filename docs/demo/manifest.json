@@ -1,0 +1,10 @@
+{
+  "name": "Phoenix Demo Home Page",
+  "short_name": "hello_phoenix",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#101018",
+  "theme_color": "#FF5722",
+  "description": "The Phoenix starter app: Flutter-style counter + Jolt physics on wasm64.",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

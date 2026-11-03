@@ -1,3 +1,9 @@
+---
+title: 0001 Monorepo and CLI
+parent: Decisions (ADRs)
+nav_order: 1
+---
+
 # 0001. Flutter-style monorepo and CLI in C#
 
 - Status: Accepted

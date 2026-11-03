@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phoenix DevTools</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #171a23; --line: #262b38; --text: #e6e9f2; --muted: #8b93a7;
+    --accent: #ff5722; --ok: #4ade80; --warn: #fbbf24; --err: #f87171;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f6f7fb; --panel: #ffffff; --line: #e3e6ee; --text: #161a23; --muted: #5b6475;
+      color-scheme: light;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 16px; margin: 0; display: flex; gap: 8px; align-items: center; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--err); display: inline-block; }
+  .dot.live { background: var(--ok); }
+  .meta { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; gap: 12px; }
+  main { padding: 16px; display: grid; gap: 16px; max-width: 1200px; margin: 0 auto; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .tile .label { color: var(--muted); font-size: 12px; }
+  .tile .value { font-size: 22px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
+  .panel h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
+  canvas { width: 100%; height: 120px; display: block; }
+  #logs { font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; max-height: 340px; overflow: auto; margin: 0; padding: 0; list-style: none; }
+  #logs li { padding: 2px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+  #logs .l3 { color: var(--muted); } #logs .l4 { color: var(--text); } #logs .l5 { color: var(--warn); } #logs .l6 { color: var(--err); }
+  .hint { color: var(--muted); font-size: 12px; }
+  code { font: 12px ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span id="status" class="dot" aria-label="disconnected"></span> Phoenix DevTools</h1>
+  <div class="meta" id="meta">Waiting for a running Phoenix app in another tab…</div>
+</header>
+<main>
+  <section class="tiles" aria-label="Engine stats">
+    <div class="tile"><div class="label">FPS</div><div class="value" id="fps">–</div></div>
+    <div class="tile"><div class="label">Frame time</div><div class="value" id="frameMs">–</div></div>
+    <div class="tile"><div class="label">Rigid bodies</div><div class="value" id="bodies">–</div></div>
+    <div class="tile"><div class="label">Worker threads</div><div class="value" id="workers">–</div></div>
+    <div class="tile"><div class="label">Jobs / s</div><div class="value" id="jobs">–</div></div>
+    <div class="tile"><div class="label">VRAM reserved</div><div class="value" id="vram">–</div></div>
+    <div class="tile"><div class="label">Frame arena peak</div><div class="value" id="arena">–</div></div>
+    <div class="tile"><div class="label">Draw rects</div><div class="value" id="rects">–</div></div>
+  </section>
+  <section class="panel">
+    <h2>Frame time (ms, last 2 min)</h2>
+    <canvas id="chart" width="1200" height="240" aria-label="Frame time chart"></canvas>
+  </section>
+  <section class="panel">
+    <h2>Logs</h2>
+    <ul id="logs"></ul>
+  </section>
+  <p class="hint">C++ breakpoints: open Chrome DevTools on the app tab → Sources → <code>/__phoenix/app/lib</code>. For full DWARF variable inspection install the “C/C++ DevTools Support (DWARF)” extension.</p>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const mib = (b) => (b / 1048576).toFixed(0) + ' MiB';
+  const history = [];
+  let lastJobs = null, lastTs = null, lastSeen = 0;
+  const channel = new BroadcastChannel('phoenix-devtools');
+
+  function draw() {
+    const c = $('chart'), ctx = c.getContext('2d');
+    const styles = getComputedStyle(document.documentElement);
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.strokeStyle = styles.getPropertyValue('--line'); ctx.lineWidth = 1;
+    const max = Math.max(33.4, ...history);
+    [16.7, 33.3].forEach((ms) => { const y = c.height - (ms / max) * c.height; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(c.width, y); ctx.stroke(); });
+    ctx.strokeStyle = styles.getPropertyValue('--accent'); ctx.lineWidth = 3; ctx.beginPath();
+    history.forEach((v, i) => { const x = (i / 479) * c.width, y = c.height - (v / max) * c.height; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.stroke();
+  }
+
+  channel.onmessage = ({ data: msg }) => {
+    lastSeen = Date.now();
+    if (msg.type === 'hello') {
+      const d = msg.data;
+      $('meta').textContent = `${d.app} · engine ${d.engine} · ${d.renderer} · ${d.wasm64 ? 'wasm64' : 'wasm32'} · ${d.workers} workers · VRAM budget ${d.vramBudgetMiB} MiB`;
+    } else if (msg.type === 'stats') {
+      const s = msg.data;
+      $('fps').textContent = s.fps.toFixed(0);
+      $('frameMs').textContent = s.frameMs.toFixed(1) + ' ms';
+      $('bodies').textContent = s.bodies;
+      $('workers').textContent = s.workers;
+      if (lastJobs !== null) $('jobs').textContent = Math.round((s.jobs - lastJobs) / ((msg.ts - lastTs) / 1000));
+      lastJobs = s.jobs; lastTs = msg.ts;
+      $('vram').textContent = s.vramPages ? mib(s.vramReserved) : 'n/a';
+      $('arena').textContent = (s.arenaHighWater / 1024).toFixed(0) + ' KiB';
+      $('rects').textContent = s.rects;
+      history.push(s.frameMs); if (history.length > 480) history.shift();
+      draw();
+    } else if (msg.type === 'log') {
+      const li = document.createElement('li');
+      li.className = 'l' + msg.data.level;
+      li.textContent = new Date(msg.ts).toLocaleTimeString() + '  ' + msg.data.message;
+      const list = $('logs');
+      list.appendChild(li);
+      while (list.children.length > 500) list.firstChild.remove();
+      list.scrollTop = list.scrollHeight;
+    }
+  };
+  setInterval(() => {
+    const live = Date.now() - lastSeen < 2000;
+    $('status').classList.toggle('live', live);
+    $('status').setAttribute('aria-label', live ? 'connected' : 'disconnected');
+  }, 500);
+})();
+</script>
+</body>
+</html>

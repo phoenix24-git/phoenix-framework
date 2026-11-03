@@ -86,6 +86,26 @@ public sealed class CreateAndBuildTests
     }
 
     [Fact]
+    public void PublishBundleReplacesAPreviousBundleOnly()
+    {
+        using var dir = new TempDir();
+        var bundle = Directory.CreateDirectory(Path.Combine(dir.Path, "bundle")).FullName;
+        File.WriteAllText(Path.Combine(bundle, "version.json"), "{}");
+        File.WriteAllText(Path.Combine(bundle, "app.js"), "new");
+
+        var target = Path.Combine(dir.Path, "docs", "demo");
+        Assert.Equal(2, AppBuilder.PublishBundle(bundle, target));        // fresh directory
+        File.WriteAllText(Path.Combine(target, "stale.wasm"), "old");
+        Assert.Equal(2, AppBuilder.PublishBundle(bundle, target));        // previous bundle replaced
+        Assert.False(File.Exists(Path.Combine(target, "stale.wasm")));
+
+        var unrelated = Directory.CreateDirectory(Path.Combine(dir.Path, "notes")).FullName;
+        File.WriteAllText(Path.Combine(unrelated, "important.md"), "keep me");
+        Assert.Throws<ToolExitException>(() => AppBuilder.PublishBundle(bundle, unrelated));
+        Assert.True(File.Exists(Path.Combine(unrelated, "important.md")));
+    }
+
+    [Fact]
     public async Task ModeFlagsAreMutuallyExclusive()
     {
         using var dir = new TempDir();

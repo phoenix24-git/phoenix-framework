@@ -1,3 +1,9 @@
+---
+title: 0004 Virtual console
+parent: Decisions (ADRs)
+nav_order: 4
+---
+
 # 0004. Virtual console profile: fixed VRAM/CPU budgets reserved at boot
 
 - Status: Accepted
