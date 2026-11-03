@@ -8,6 +8,7 @@
 
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <system_error>
 
@@ -27,9 +28,7 @@ namespace {
 
 void write_file(const fs::path& path, const std::string& text) {
     fs::create_directories(path.parent_path());
-    std::FILE* f = std::fopen(path.string().c_str(), "wb");
-    std::fwrite(text.data(), 1, text.size(), f);
-    std::fclose(f);
+    std::ofstream(path, std::ios::binary) << text;
 }
 
 // Exit codes: 0 = all checks passed, 10+ = which check failed.
