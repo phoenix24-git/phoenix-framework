@@ -15,6 +15,10 @@
 #include <SDL3/SDL_time.h>
 #include <SDL3/SDL_timer.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#endif
+
 #ifdef _WIN32
 #include <process.h>
 #else
@@ -252,7 +256,14 @@ void OS_Phoenix::delay_usec(uint32_t p_usec) const {
 }
 
 uint64_t OS_Phoenix::get_ticks_usec() const {
+#ifdef __EMSCRIPTEN__
+	// SDL's web tick counter is millisecond-granular; performance.now() has sub-ms precision
+	// (Godot's web platform reads it the same way).
+	static const double start_ms = emscripten_get_now();
+	return uint64_t((emscripten_get_now() - start_ms) * 1000.0);
+#else
 	return SDL_GetTicksNS() / 1000;
+#endif
 }
 
 String OS_Phoenix::get_resource_dir() const {
