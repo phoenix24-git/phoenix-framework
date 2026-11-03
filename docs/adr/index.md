@@ -16,7 +16,3 @@ old one "Superseded by NNNN".
 | [0002](0002-wasm64-pthreads-web-target.md) | wasm64 + pthreads + WebGPU as the web target | Accepted |
 | [0003](0003-zero-overhead-csharp-interop.md) | Zero-overhead C# interop via NativeAOT and a C Script ABI | Accepted |
 | [0004](0004-virtual-console-profile.md) | Virtual console profile: fixed VRAM/CPU budgets reserved at boot | Accepted |
-| [0005](0005-godot-style-servers.md) | Godot-style servers between scenes and hardware | Accepted |
-| [0006](0006-ecs-with-unity-style-api.md) | Archetype ECS storage with a Unity-style authoring API | Accepted |
-| [0007](0007-slang-and-two-rhis.md) | Slang for all shaders; SDL_GPU now, slang-rhi as the second RHI | Accepted |
-| [0008](0008-clean-room-policy.md) | Borrow ideas, not code: clean-room policy | Accepted |

@@ -36,3 +36,6 @@ dev/e2e/playwright-report/
 # OS
 .DS_Store
 Thumbs.db
+
+# Private roadmap: plaintext only exists locally after `dev/tools/roadmap.sh unlock`.
+internal/roadmap/
