@@ -25,8 +25,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
       - name: clang-format
@@ -53,7 +53,7 @@ jobs:
           - { name: macos, os: macos-15, preset: native-debug, cc: clang, cxx: clang++, experimental: true }
           - { name: windows-msvc, os: windows-2025, preset: native-debug, cc: cl, cxx: cl, experimental: true }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: dev/ci/install_linux_deps.sh && sudo apt-get install -y -qq libclang-rt-18-dev
@@ -63,7 +63,7 @@ jobs:
       - name: MSVC environment
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: bin/cache/deps
           key: deps-${{ hashFiles('engine/cmake/PhoenixDependencies.cmake') }}
@@ -85,15 +85,15 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: versions
         run: echo "emscripten=$(cat bin/internal/emscripten.version)" >> "$GITHUB_OUTPUT"
-      - uses: mymindstorm/setup-emsdk@v14
+      - uses: mymindstorm/setup-emsdk@v16
         with:
           version: ${{ steps.versions.outputs.emscripten }}
           actions-cache-folder: emsdk-cache
       - run: sudo apt-get install -y -qq ninja-build
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: bin/cache/deps
           key: deps-${{ hashFiles('engine/cmake/PhoenixDependencies.cmake') }}
@@ -112,8 +112,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
       - run: dev/ci/install_linux_deps.sh
@@ -125,7 +125,7 @@ jobs:
         run: dotnet publish examples/csharp_script/CSharpScript.csproj -c Release -r linux-x64 -o build/csharp_script
       - name: Verify native exports
         run: nm -D --defined-only build/csharp_script/CSharpScript.so | grep -E 'phoenix_script_(init|update|shutdown)'
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: bin/cache/deps
           key: deps-${{ hashFiles('engine/cmake/PhoenixDependencies.cmake') }}
@@ -143,18 +143,18 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
       - id: versions
         run: echo "emscripten=$(cat bin/internal/emscripten.version)" >> "$GITHUB_OUTPUT"
-      - uses: mymindstorm/setup-emsdk@v14
+      - uses: mymindstorm/setup-emsdk@v16
         with:
           version: ${{ steps.versions.outputs.emscripten }}
           actions-cache-folder: emsdk-cache
       - run: dev/ci/install_linux_deps.sh
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: bin/cache/deps
           key: deps-${{ hashFiles('engine/cmake/PhoenixDependencies.cmake') }}
@@ -167,7 +167,7 @@ jobs:
           "$GITHUB_WORKSPACE/bin/phoenix" test
           "$GITHUB_WORKSPACE/bin/phoenix" build web --release
           test -f build/web/smoke_app.wasm && test -f build/web/phoenix_bootstrap.js
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -178,7 +178,7 @@ jobs:
       - name: Browser e2e (WebGPU via SwiftShader + WebGL fallback)
         working-directory: dev/e2e
         run: npx playwright test
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report
