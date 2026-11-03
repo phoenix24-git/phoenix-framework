@@ -79,7 +79,7 @@ def gen_source(cat) -> str:
            "namespace phoenix::scene {\n", "namespace {"]
     for name, values in cat.ENUMS.items():
         names = ", ".join(f'"{v}"' for v in values)
-        out.append(f"const char* const k{name}Names[] = {{{names}, nullptr}};")
+        out.append(f"[[maybe_unused]] const char* const k{name}Names[] = {{{names}, nullptr}};")
     out.append("}  // namespace\n")
     out.append("void register_builtin_components() {")
     out.append("    using ecs::ComponentStatus;")
