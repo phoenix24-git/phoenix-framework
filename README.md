@@ -103,7 +103,7 @@ public static unsafe class Exports                        // 3. NativeAOT turns 
 
 The engine table is a C struct of `delegate* unmanaged<...>` function pointers ([`script_abi.h`](engine/include/phoenix/script_abi.h) and [`ScriptAbi.cs`](packages/phoenix/src/Interop/ScriptAbi.cs)). Both sides check the layout byte for byte in their tests, and CI loads the real NativeAOT library from C++. See [examples/csharp_script](examples/csharp_script).
 
-> C# scripts currently run on **desktop**. .NET 10 cannot produce wasm64 NativeAOT code, so web apps use C++ for now. See the [roadmap](docs/roadmap.md).
+> C# scripts currently run on **desktop**. No .NET release can produce wasm64 NativeAOT code yet, so web apps use C++ for now. The pinned runtime sources and the plan to get there are in [ADR 0005](docs/adr/0005-dotnet-runtime-sources-for-wasm64-csharp.md) (`dev/tools/dotnet_runtime.sh fetch`).
 
 ## Repository layout
 

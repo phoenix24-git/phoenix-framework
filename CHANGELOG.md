@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **.NET runtime sources for wasm64 C#** ([ADR 0005](docs/adr/0005-dotnet-runtime-sources-for-wasm64-csharp.md)):
+  `dotnet/runtime`, `dotnet/runtimelab` NativeAOT-LLVM and the Mono wasm64 fork are pinned in
+  `bin/internal/dotnet-runtime.lock`. `dev/tools/dotnet_runtime.sh fetch|status|path|bump` makes
+  verified, blobless, sparse clones into `bin/cache/` (git-ignored).
 - **Scenes and scripts** (see `docs/scenes.md`):
   - `.pscn` scene files use Godot's `.tscn` syntax, with `[node]`, `[component]` and `[script]`
     sections; start one with `phoenix::runScene("res://…")`.

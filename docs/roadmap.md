@@ -43,8 +43,10 @@ Honest status of the MVP and what comes next. Items are ordered roughly by prior
 ## .NET roadmap
 
 - **2026 (.NET 10 LTS):** the CLI, C# framework and desktop NativeAOT scripts.
-- **2027 (.NET 11):** bump `PhoenixTargetFramework` and `global.json`. Evaluate the official WebAssembly
-  NativeAOT story (NativeAOT-LLVM) for compiling C# scripts into the same **wasm64** module as the
+- **wasm64 C# (in progress):** runtime sources are pinned and fetched with `dev/tools/dotnet_runtime.sh`.
+  The plan is to add wasm64 to NativeAOT-LLVM; see [ADR 0005](adr/0005-dotnet-runtime-sources-for-wasm64-csharp.md).
+- **2027 (.NET 11):** bump `PhoenixTargetFramework` and `global.json`. Switch to official WebAssembly
+  NativeAOT when it supports **wasm64**, for compiling C# scripts into the same module as the
   engine. The Script ABI already works there: calls are plain C, data is shared by pointer, and the
   memory is one shared linear memory.
 
