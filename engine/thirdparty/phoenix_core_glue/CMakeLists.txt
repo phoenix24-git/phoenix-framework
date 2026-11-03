@@ -120,6 +120,9 @@ if(MSVC)
     target_compile_options(phoenix_foundation PRIVATE /W0 /utf-8 /bigobj)
     # Godot typedefs.h checks __cplusplus, which MSVC only reports correctly with /Zc:__cplusplus.
     target_compile_options(phoenix_foundation PUBLIC /Zc:__cplusplus)
+    # MSVC can't reinterpret_cast member pointers to an incomplete class (method_bind_common.h);
+    # upstream's Windows build uses typed method binds for the same reason.
+    target_compile_definitions(phoenix_foundation PUBLIC TYPED_METHOD_BIND)
     target_compile_options(phoenix_foundation PRIVATE /Zc:preprocessor)
 else()
     target_compile_options(phoenix_foundation PRIVATE -w $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>)
