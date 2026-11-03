@@ -922,10 +922,11 @@ WidgetPtr SceneEditor::buildInspector() {
         // MetaBehaviours (C++ scripts) are listed; their fields are not reflected.
         if (const auto* host = scene_->world().get<scene::ScriptHost>(go.entity())) {
             std::vector<WidgetPtr> rows;
-            for (const auto& behaviour : host->behaviours) {
+            for (const auto& owned : host->behaviours) {
+                const scene::MetaBehaviour& behaviour = *owned;
                 rows.push_back(Row({.spacing = 6,
-                                    .children = {Label(demangle(typeid(*behaviour))),
-                                                 Label(behaviour->enabled() ? "" : "(disabled)",
+                                    .children = {Label(demangle(typeid(behaviour))),
+                                                 Label(behaviour.enabled() ? "" : "(disabled)",
                                                        ToolTheme::textDim)}}));
             }
             const bool open = !folded_["Scripts"];
