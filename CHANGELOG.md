@@ -8,6 +8,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Virtual file system** (`phoenix/vfs/vfs.h`), using Godot-style paths:
+  - `res://` for project resources and `user://` for per-player data, plus `uid://`
+  - path normalization that blocks paths escaping their root
+  - atomic writes
+  - `.pck` and `.zip` packs: a sealed main pack for exported games, and layered DLC and mod packs
+  - on the web, `user://` is stored in OPFS
+- `phoenix_pack` tool: packs a project folder into a `.pck`.
+
 - **ECS** (`phoenix::ecs`, on foundation types):
   - archetype storage in 16 KiB SoA chunks
   - entity generations
@@ -55,6 +63,10 @@ All notable changes to this project are documented here. The format follows
 ### Removed
 
 - `pages.yml`, the Actions-based Pages deploy. The repository serves Pages from `main /docs`.
+
+### Fixed
+
+- Directory listings in the SDL file layer no longer return nested files.
 
 ## [0.1.0] - 2026-11-03
 

@@ -1,0 +1,23 @@
+# Runs phoenix_pack on a small folder and checks the summary and the output file.
+file(REMOVE_RECURSE "${WORK}")
+file(WRITE "${WORK}/project/a.txt" "alpha")
+file(WRITE "${WORK}/project/sub/b.txt" "beta")
+file(WRITE "${WORK}/project/raw/big.psd" "not shipped")
+file(WRITE "${WORK}/project/.git/HEAD" "hidden")
+file(WRITE "${WORK}/project/build/out.o" "build output")
+execute_process(
+    COMMAND "${PACK}" "${WORK}/project" "${WORK}/project/game.pck" --exclude "res://raw/*"
+    RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err)
+if(NOT rc EQUAL 0)
+    message(FATAL_ERROR "phoenix_pack failed (${rc}): ${out}${err}")
+endif()
+if(NOT out MATCHES "2 files")
+    message(FATAL_ERROR "expected 2 packed files (a.txt, sub/b.txt), got: ${out}")
+endif()
+if(NOT EXISTS "${WORK}/project/game.pck")
+    message(FATAL_ERROR "no pack written")
+endif()
+file(READ "${WORK}/project/game.pck" magic LIMIT 4)
+if(NOT magic STREQUAL "GDPC")
+    message(FATAL_ERROR "not a PCK file: ${magic}")
+endif()

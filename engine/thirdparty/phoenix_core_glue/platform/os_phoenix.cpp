@@ -45,6 +45,13 @@ void OS_Phoenix::initialize() {
 	DirAccess::make_default<DirAccessSDL>(DirAccess::ACCESS_RESOURCES);
 	DirAccess::make_default<DirAccessSDL>(DirAccess::ACCESS_USERDATA);
 	DirAccess::make_default<DirAccessSDL>(DirAccess::ACCESS_FILESYSTEM);
+	if (data_root.is_empty()) {
+		data_root = detect_data_root();
+	}
+	data_root = data_root.replace_char('\\', '/');
+	if (data_root.length() > 1 && data_root.ends_with("/")) {
+		data_root = data_root.substr(0, data_root.length() - 1);
+	}
 }
 
 void OS_Phoenix::delete_main_loop() {
@@ -271,16 +278,24 @@ String OS_Phoenix::get_resource_dir() const {
 }
 
 String OS_Phoenix::get_data_path() const {
+	return data_root;
+}
+
+String OS_Phoenix::detect_data_root() {
 #ifdef __EMSCRIPTEN__
-	// Fixed, absolute root in the virtual file system (Godot's web platform uses "/userfs"
-	// too). Persistence is the storage service's job (OPFS under /persistent). Under Node with
-	// NODERAWFS (tests) "/" is the host's root, which may not be writable: use the temp dir.
-	// access() is not reliable here (Emscripten reports uid 0), so probe with a real write.
-	if (SDL_CreateDirectory("/userfs/.probe")) {
-		SDL_RemovePath("/userfs/.probe");
-		return "/userfs";
+	// Absolute roots in the virtual file system. "/persistent" is the OPFS mount the engine
+	// creates at startup (data survives reloads); "/userfs" is in-memory, like Godot's web
+	// platform. Under Node with NODERAWFS (tests) "/" is the host's root and may not be
+	// writable, so fall back to the temp dir. access() is unreliable here (Emscripten reports
+	// uid 0), so probe with a real write.
+	for (const char *root : { "/persistent", "/userfs" }) {
+		const String probe = String(root).path_join(".phoenix-probe");
+		if (SDL_CreateDirectory(probe.utf8().get_data())) {
+			SDL_RemovePath(probe.utf8().get_data());
+			return root;
+		}
 	}
-	return get_cache_path().path_join("phoenix-userdata");
+	return String(SDL_getenv("TMPDIR") ? SDL_getenv("TMPDIR") : "/tmp").path_join("phoenix-userdata");
 #else
 	// SDL's per-user data root (XDG_DATA_HOME on Linux, %APPDATA% on Windows,
 	// ~/Library/Application Support on macOS): SDL_GetPrefPath returns <root>/<org>/<app>/.
@@ -296,7 +311,14 @@ String OS_Phoenix::get_data_path() const {
 	root = root.get_base_dir().get_base_dir();
 	if (!root.is_absolute_path()) {
 		// SDL could not resolve a per-user root (no HOME, sandbox): fall back to a temp dir.
-		root = get_cache_path().path_join("phoenix-userdata");
+		String tmp = "/tmp";
+		for (const char *var : { "TMPDIR", "TEMP", "TMP" }) {
+			if (const char *v = SDL_getenv(var)) {
+				tmp = String::utf8(v).replace_char('\\', '/');
+				break;
+			}
+		}
+		root = tmp.path_join("phoenix-userdata");
 	}
 	return root;
 #endif

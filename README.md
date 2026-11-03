@@ -13,6 +13,10 @@ Phoenix is an app and game framework with **Flutter's developer workflow** (`cre
 - Apps written in **C++** with a Flutter-style widget API. Gameplay scripts can also be written in **C#**, compiled with NativeAOT and called with no marshalling.
 - The web target is **wasm64 (Memory64) with pthreads**: Web Workers share one linear memory that can grow past 4 GiB. Persistent storage uses **OPFS**.
 - A **Unity-style scene layer**: `GameObject`, `Transform`, `MetaBehaviour`, and [141 Unity components](docs/components.md). It runs on a data-oriented archetype **ECS** built from foundation types (String, Vector3, Transform3D, Variant) that are vendored from Godot's MIT `core/`. See [Coming from Unity](docs/unity.md).
+- A Godot-style **virtual file system**:
+  - paths: `res://` for resources and `user://` for saves, backed by OPFS on the web
+  - `.pck`/`.zip` packs for exported games, DLC and mods
+  - see [File system](docs/file-system.md)
 - A **virtual console** profile reserves fixed hardware budgets at boot. By default that is **3.5 GiB of VRAM** and **6 worker cores**.
 
 The CLI is written in C# (.NET 10, with .NET 11 planned for 2027) and plays the role of `flutter_tools`. Some ideas are borrowed from O3DE (modular engine libraries), Godot (scripts attached to an engine core) and Bevy (data in plain structs shared across systems).

@@ -66,6 +66,18 @@ if(PHOENIX_WITH_FOUNDATION)
         target_compile_options(phoenix_ecs PUBLIC -Wno-invalid-offsetof)
     endif()
 
+    # Godot-style virtual file system (res://, user://, uid://, packs).
+    phoenix_engine_library(vfs
+        SOURCES vfs/vfs.cpp
+        DEPS phoenix::foundation)
+
+    if(NOT EMSCRIPTEN)
+        # Packs a project folder into a .pck (res://) for export and DLC.
+        add_executable(phoenix_pack "${CMAKE_CURRENT_SOURCE_DIR}/../tools/phoenix_pack.cpp")
+        target_link_libraries(phoenix_pack PRIVATE phoenix::foundation)
+        phoenix_target_defaults(phoenix_pack)
+    endif()
+
     phoenix_engine_library(scene
         SOURCES scene/scene.cpp "${PHOENIX_COMPONENTS_GEN}/phoenix/scene/components.gen.cpp"
         DEPS phoenix::ecs)

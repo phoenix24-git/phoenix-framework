@@ -41,4 +41,26 @@ if(PHOENIX_WITH_FOUNDATION)
     endif()
     add_test(NAME phoenix_scene_tests COMMAND phoenix_scene_tests)
     set_tests_properties(phoenix_scene_tests PROPERTIES TIMEOUT 300)
+
+    # Virtual file system: res://, user://, packs.
+    add_executable(phoenix_vfs_tests vfs/main.cpp vfs/vfs_test.cpp)
+    target_link_libraries(phoenix_vfs_tests PRIVATE phoenix::vfs phoenix::doctest)
+    phoenix_target_defaults(phoenix_vfs_tests)
+    if(EMSCRIPTEN)
+        target_compile_definitions(phoenix_vfs_tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
+        target_link_options(phoenix_vfs_tests PRIVATE
+            -sPROXY_TO_PTHREAD -sPTHREAD_POOL_SIZE=8 -sEXIT_RUNTIME=1 -sNODERAWFS=1
+            -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=4GB -sSTACK_SIZE=4MB -sDEFAULT_PTHREAD_STACK_SIZE=2MB
+            -sENVIRONMENT=node,worker -Wno-pthreads-mem-growth
+            "SHELL:--pre-js ${CMAKE_CURRENT_SOURCE_DIR}/node_pre.js")
+    endif()
+    add_test(NAME phoenix_vfs_tests COMMAND phoenix_vfs_tests)
+    set_tests_properties(phoenix_vfs_tests PROPERTIES TIMEOUT 300)
+    if(TARGET phoenix_pack)
+        # The pack tool end to end: pack a folder, then mount the result.
+        add_test(NAME phoenix_pack_smoke
+                 COMMAND "${CMAKE_COMMAND}" -DPACK=$<TARGET_FILE:phoenix_pack>
+                         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/pack_smoke
+                         -P "${CMAKE_CURRENT_SOURCE_DIR}/vfs/pack_smoke.cmake")
+    endif()
 endif()

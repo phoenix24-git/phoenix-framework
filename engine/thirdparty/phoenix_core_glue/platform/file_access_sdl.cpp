@@ -332,15 +332,15 @@ String DirAccessSDL::_abs(const String &p_path) const {
 
 Error DirAccessSDL::list_dir_begin() {
 	list_dir_end();
-	int count = 0;
-	char **entries = SDL_GlobDirectory(current_dir.utf8().get_data(), nullptr, 0, &count);
-	if (!entries) {
+	// Direct children only (SDL_GlobDirectory without a pattern walks the whole tree).
+	const auto collect = [](void *userdata, const char *, const char *fname) -> SDL_EnumerationResult {
+		static_cast<Vector<String> *>(userdata)->push_back(String::utf8(fname));
+		return SDL_ENUM_CONTINUE;
+	};
+	if (!SDL_EnumerateDirectory(current_dir.utf8().get_data(), collect, &listing)) {
+		listing.clear();
 		return ERR_CANT_OPEN;
 	}
-	for (int i = 0; i < count; i++) {
-		listing.push_back(String::utf8(entries[i]));
-	}
-	SDL_free(entries);
 	listing.sort();
 	list_index = 0;
 	listing_active = true;

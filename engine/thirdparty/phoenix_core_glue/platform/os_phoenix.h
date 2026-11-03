@@ -13,12 +13,17 @@ class OS_Phoenix : public OS {
 	MainLoop *main_loop = nullptr;
 	String resource_dir;
 	String app_name;
+	String data_root;  // resolved once in initialize() (user:// lives below it)
 	mutable HashMap<ProcessID, SDL_Process *> processes;
 
 public:
 	explicit OS_Phoenix(String p_app_name = "phoenix");
 
 	void set_resource_dir(const String &p_dir) { resource_dir = p_dir; }
+	/// Overrides the per-user data root (default: the platform's, see get_data_path()).
+	void set_data_root(const String &p_dir) { data_root = p_dir; }
+	/// The platform default for get_data_path() (probes the file system; not cached).
+	static String detect_data_root();
 	using OS::set_cmdline;  // public for CoreRuntime
 
 	virtual void initialize() override;
