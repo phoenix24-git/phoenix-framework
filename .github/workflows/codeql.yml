@@ -23,7 +23,7 @@ jobs:
         language: [csharp, actions, javascript-typescript]
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v6
         if: matrix.language == 'csharp'
         with:
           global-json-file: global.json
